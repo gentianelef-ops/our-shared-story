@@ -56,9 +56,11 @@ function write(s: NousState) {
 
 export function useNous() {
   const [state, setState] = useState<NousState>(initialState);
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     setState(read());
+    setHydrated(true);
     const handler = () => setState(read());
     window.addEventListener("nous:change", handler);
     window.addEventListener("storage", handler);
@@ -75,7 +77,7 @@ export function useNous() {
     setState(next);
   }, []);
 
-  return { state, update };
+  return { state, update, hydrated };
 }
 
 export function resetNous() {
