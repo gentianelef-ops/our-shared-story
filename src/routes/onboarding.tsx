@@ -32,7 +32,9 @@ function Onboarding() {
       unlock(member.id);
       setCreated({ code: couple.code });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Échec de la création.");
+      console.error("createCouple failed:", e);
+      const msg = e instanceof Error ? e.message : JSON.stringify(e);
+      setError(`Échec : ${msg}`);
     } finally {
       setBusy(false);
     }
