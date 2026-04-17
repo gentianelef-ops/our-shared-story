@@ -7,14 +7,15 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  const { state } = useNous();
+  const { state, hydrated } = useNous();
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (!hydrated) return;
     if (state.onboarded && state.currentProfileId) {
       navigate({ to: "/journal" });
     }
-  }, [state.onboarded, state.currentProfileId, navigate]);
+  }, [hydrated, state.onboarded, state.currentProfileId, navigate]);
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-8 py-16 text-center">
