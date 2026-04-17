@@ -14,13 +14,278 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      couples: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          started_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          started_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          started_at?: string
+        }
+        Relationships: []
+      }
+      entries: {
+        Row: {
+          author_id: string
+          couple_id: string
+          created_at: string
+          id: string
+          raw: string
+          reformulated: string | null
+          shared_at: string | null
+          tag: string
+          will_share: boolean
+        }
+        Insert: {
+          author_id: string
+          couple_id: string
+          created_at?: string
+          id?: string
+          raw: string
+          reformulated?: string | null
+          shared_at?: string | null
+          tag: string
+          will_share?: boolean
+        }
+        Update: {
+          author_id?: string
+          couple_id?: string
+          created_at?: string
+          id?: string
+          raw?: string
+          reformulated?: string | null
+          shared_at?: string | null
+          tag?: string
+          will_share?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entries_couple_id_fkey"
+            columns: ["couple_id"]
+            isOneToOne: false
+            referencedRelation: "couples"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      friday_answers: {
+        Row: {
+          author_id: string
+          gratitude: string
+          id: string
+          question_answer: string
+          ritual_id: string
+          submitted_at: string
+        }
+        Insert: {
+          author_id: string
+          gratitude: string
+          id?: string
+          question_answer: string
+          ritual_id: string
+          submitted_at?: string
+        }
+        Update: {
+          author_id?: string
+          gratitude?: string
+          id?: string
+          question_answer?: string
+          ritual_id?: string
+          submitted_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "friday_answers_ritual_id_fkey"
+            columns: ["ritual_id"]
+            isOneToOne: false
+            referencedRelation: "friday_rituals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      friday_rituals: {
+        Row: {
+          couple_id: string
+          id: string
+          question: string
+          week_key: string
+        }
+        Insert: {
+          couple_id: string
+          id?: string
+          question: string
+          week_key: string
+        }
+        Update: {
+          couple_id?: string
+          id?: string
+          question?: string
+          week_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "friday_rituals_couple_id_fkey"
+            columns: ["couple_id"]
+            isOneToOne: false
+            referencedRelation: "couples"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      members: {
+        Row: {
+          couple_id: string
+          created_at: string
+          display_name: string
+          id: string
+          pin: string
+          slot: string
+          user_id: string
+        }
+        Insert: {
+          couple_id: string
+          created_at?: string
+          display_name: string
+          id?: string
+          pin: string
+          slot: string
+          user_id: string
+        }
+        Update: {
+          couple_id?: string
+          created_at?: string
+          display_name?: string
+          id?: string
+          pin?: string
+          slot?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "members_couple_id_fkey"
+            columns: ["couple_id"]
+            isOneToOne: false
+            referencedRelation: "couples"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      memory_moments: {
+        Row: {
+          body: string | null
+          couple_id: string
+          created_at: string
+          id: string
+          kind: string
+          title: string
+        }
+        Insert: {
+          body?: string | null
+          couple_id: string
+          created_at?: string
+          id?: string
+          kind: string
+          title: string
+        }
+        Update: {
+          body?: string | null
+          couple_id?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "memory_moments_couple_id_fkey"
+            columns: ["couple_id"]
+            isOneToOne: false
+            referencedRelation: "couples"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pact_rules: {
+        Row: {
+          couple_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          text: string
+        }
+        Insert: {
+          couple_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          text: string
+        }
+        Update: {
+          couple_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pact_rules_couple_id_fkey"
+            columns: ["couple_id"]
+            isOneToOne: false
+            referencedRelation: "couples"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tree_events: {
+        Row: {
+          couple_id: string
+          created_at: string
+          id: string
+          kind: string
+        }
+        Insert: {
+          couple_id: string
+          created_at?: string
+          id?: string
+          kind: string
+        }
+        Update: {
+          couple_id?: string
+          created_at?: string
+          id?: string
+          kind?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tree_events_couple_id_fkey"
+            columns: ["couple_id"]
+            isOneToOne: false
+            referencedRelation: "couples"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      both_answered: { Args: { _ritual_id: string }; Returns: boolean }
+      current_couple_id: { Args: never; Returns: string }
+      is_couple_member: { Args: { _couple_id: string }; Returns: boolean }
+      join_couple_by_code: { Args: { _code: string }; Returns: string }
     }
     Enums: {
       [_ in never]: never
