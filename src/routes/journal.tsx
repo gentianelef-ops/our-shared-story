@@ -24,7 +24,7 @@ function startOfWeek(ts: number) {
 }
 
 function Journal() {
-  const { state, update } = useNous();
+  const { state, update, hydrated } = useNous();
   const navigate = useNavigate();
 
   const [tag, setTag] = useState<EntryTag>("positif");
@@ -33,9 +33,10 @@ function Journal() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
+    if (!hydrated) return;
     if (!state.onboarded) navigate({ to: "/" });
     else if (!state.currentProfileId) navigate({ to: "/login" });
-  }, [state.onboarded, state.currentProfileId, navigate]);
+  }, [hydrated, state.onboarded, state.currentProfileId, navigate]);
 
   const me = state.currentProfileId ? state.profiles[state.currentProfileId] : null;
   const weekStart = useMemo(() => startOfWeek(Date.now()), []);
