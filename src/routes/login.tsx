@@ -10,17 +10,17 @@ export const Route = createFileRoute("/login")({
 });
 
 function Login() {
-  const { state, update } = useNous();
+  const { state, update, hydrated } = useNous();
   const navigate = useNavigate();
   const [selected, setSelected] = useState<"a" | "b" | null>(null);
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!state.onboarded) navigate({ to: "/" });
-  }, [state.onboarded, navigate]);
+    if (hydrated && !state.onboarded) navigate({ to: "/" });
+  }, [hydrated, state.onboarded, navigate]);
 
-  if (!state.profiles.a || !state.profiles.b) return null;
+  if (!hydrated || !state.profiles.a || !state.profiles.b) return null;
 
   const profile = selected ? state.profiles[selected] : null;
 
