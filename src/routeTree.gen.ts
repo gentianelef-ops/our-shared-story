@@ -9,14 +9,26 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as VendrediRouteImport } from './routes/vendredi'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as NousRouteImport } from './routes/nous'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as JournalRouteImport } from './routes/journal'
 import { Route as IndexRouteImport } from './routes/index'
 
+const VendrediRoute = VendrediRouteImport.update({
+  id: '/vendredi',
+  path: '/vendredi',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NousRoute = NousRouteImport.update({
+  id: '/nous',
+  path: '/nous',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -39,43 +51,72 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/journal': typeof JournalRoute
   '/login': typeof LoginRoute
+  '/nous': typeof NousRoute
   '/onboarding': typeof OnboardingRoute
+  '/vendredi': typeof VendrediRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/journal': typeof JournalRoute
   '/login': typeof LoginRoute
+  '/nous': typeof NousRoute
   '/onboarding': typeof OnboardingRoute
+  '/vendredi': typeof VendrediRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/journal': typeof JournalRoute
   '/login': typeof LoginRoute
+  '/nous': typeof NousRoute
   '/onboarding': typeof OnboardingRoute
+  '/vendredi': typeof VendrediRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/journal' | '/login' | '/onboarding'
+  fullPaths: '/' | '/journal' | '/login' | '/nous' | '/onboarding' | '/vendredi'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/journal' | '/login' | '/onboarding'
-  id: '__root__' | '/' | '/journal' | '/login' | '/onboarding'
+  to: '/' | '/journal' | '/login' | '/nous' | '/onboarding' | '/vendredi'
+  id:
+    | '__root__'
+    | '/'
+    | '/journal'
+    | '/login'
+    | '/nous'
+    | '/onboarding'
+    | '/vendredi'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   JournalRoute: typeof JournalRoute
   LoginRoute: typeof LoginRoute
+  NousRoute: typeof NousRoute
   OnboardingRoute: typeof OnboardingRoute
+  VendrediRoute: typeof VendrediRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/vendredi': {
+      id: '/vendredi'
+      path: '/vendredi'
+      fullPath: '/vendredi'
+      preLoaderRoute: typeof VendrediRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/onboarding': {
       id: '/onboarding'
       path: '/onboarding'
       fullPath: '/onboarding'
       preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/nous': {
+      id: '/nous'
+      path: '/nous'
+      fullPath: '/nous'
+      preLoaderRoute: typeof NousRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -106,8 +147,19 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   JournalRoute: JournalRoute,
   LoginRoute: LoginRoute,
+  NousRoute: NousRoute,
   OnboardingRoute: OnboardingRoute,
+  VendrediRoute: VendrediRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}

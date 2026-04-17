@@ -1,0 +1,4 @@
+project_id = "atslxjfwywsjszzpuxmm"
+
+[functions.translate-emotion]
+verify_jwt = false
