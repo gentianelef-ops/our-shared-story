@@ -1,5 +1,6 @@
 // Couple session helpers
-import { supabase, type Couple, type Member } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
+import type { Couple, Member } from "@/lib/types";
 
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no I, O, 0, 1
 function genCode(len = 6): string {
