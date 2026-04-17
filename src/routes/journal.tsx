@@ -1,313 +1,315 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import { useNous, reformulateCNV, type EntryTag, type JournalEntry } from "@/lib/nous-store";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useCoupleSession } from "@/lib/use-couple-session";
+import { isUnlocked, lock } from "@/lib/local-lock";
+import { BottomNav } from "@/components/bottom-nav";
+import type { Entry, PactRule, Tag, Member } from "@/lib/types";
+import { Sparkles, Lock, LogOut } from "lucide-react";
 
 export const Route = createFileRoute("/journal")({
   head: () => ({
-    meta: [{ title: "Ma manche — Nous" }],
+    meta: [
+      { title: "Ma manche — Nous" },
+      { name: "description", content: "Dépose ce qui compte. Vendredi, on partage." },
+    ],
   }),
   component: Journal,
 });
 
-const TAGS: {
-  id: EntryTag;
-  icon: string;
-  label: string;
-  hint: string;
-  bg: string;
-}[] = [
-  { id: "positif", icon: "💛", label: "+1", hint: "Un truc cool. Un geste qui t'a touché·e. Note-le avant de l'oublier.", bg: "bg-sunshine" },
-  { id: "pacte", icon: "🎯", label: "Pacte", hint: "Une règle qu'on a (un peu ou beaucoup) zappée cette fois.", bg: "bg-emerald-soft" },
-  { id: "emotion", icon: "🔥", label: "Émotion", hint: "Écris brut. On t'aide à traduire après.", bg: "bg-coral/70" },
+const TAGS: { id: Tag; emoji: string; label: string; sub: string }[] = [
+  { id: "positif", emoji: "💚", label: "+1", sub: "Un moment qui fait du bien" },
+  { id: "pacte", emoji: "📜", label: "Pacte", sub: "Une règle franchie ou tenue" },
+  { id: "emotion", emoji: "🌊", label: "Émotion", sub: "À traduire en CNV" },
 ];
 
-function startOfWeek(ts: number) {
-  const d = new Date(ts);
-  const day = (d.getDay() + 6) % 7;
-  d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() - day);
-  return d.getTime();
-}
-
 function Journal() {
-  const { state, update, hydrated } = useNous();
+  const { loading, member, couple } = useCoupleSession();
   const navigate = useNavigate();
-
-  const [tag, setTag] = useState<EntryTag>("positif");
-  const [raw, setRaw] = useState("");
-  const [reform, setReform] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
+  const [unlocked, setUnlocked] = useState(false);
+  const [entries, setEntries] = useState<Entry[]>([]);
+  const [pact, setPact] = useState<PactRule[]>([]);
 
   useEffect(() => {
-    if (!hydrated) return;
-    if (!state.onboarded) navigate({ to: "/" });
-    else if (!state.currentProfileId) navigate({ to: "/login" });
-  }, [hydrated, state.onboarded, state.currentProfileId, navigate]);
+    if (loading) return;
+    if (!member) { navigate({ to: "/" }); return; }
+    if (!isUnlocked(member.id)) { navigate({ to: "/login" }); return; }
+    setUnlocked(true);
+  }, [loading, member, navigate]);
 
-  const me = state.currentProfileId ? state.profiles[state.currentProfileId] : null;
-  const weekStart = useMemo(() => startOfWeek(Date.now()), []);
+  useEffect(() => {
+    if (!unlocked || !couple || !member) return;
+    void (async () => {
+      const { data: ents } = await supabase
+        .from("entries")
+        .select("*")
+        .eq("author_id", member.user_id)
+        .order("created_at", { ascending: false });
+      setEntries((ents as Entry[]) ?? []);
+      const { data: rules } = await supabase
+        .from("pact_rules")
+        .select("*")
+        .eq("couple_id", couple.id);
+      setPact((rules as PactRule[]) ?? []);
+    })();
+  }, [unlocked, couple, member]);
 
-  const myWeekEntries = useMemo(
-    () =>
-      state.entries
-        .filter((e) => e.authorId === state.currentProfileId && e.createdAt >= weekStart)
-        .sort((a, b) => b.createdAt - a.createdAt),
-    [state.entries, state.currentProfileId, weekStart],
-  );
-
-  if (!me) return null;
-
-  const canReformulate = tag === "emotion" && raw.trim().length > 3;
-
-  const translate = () => setReform(reformulateCNV(raw));
-
-  const addEntry = () => {
-    const text = raw.trim();
-    if (!text) return;
-    const entry: JournalEntry = {
-      id: crypto.randomUUID(),
-      authorId: me.id,
-      tag,
-      raw: text,
-      reformulated: reform ?? undefined,
-      createdAt: Date.now(),
-      willShare: false,
-    };
-    update((s) => ({ ...s, entries: [entry, ...s.entries] }));
-    setRaw("");
-    setReform(null);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1600);
+  const refreshEntries = async () => {
+    if (!member) return;
+    const { data } = await supabase
+      .from("entries")
+      .select("*")
+      .eq("author_id", member.user_id)
+      .order("created_at", { ascending: false });
+    setEntries((data as Entry[]) ?? []);
   };
 
-  const toggleShare = (id: string) => {
-    update((s) => ({
-      ...s,
-      entries: s.entries.map((e) => (e.id === id ? { ...e, willShare: !e.willShare } : e)),
-    }));
+  if (loading || !unlocked || !member || !couple) {
+    return <main className="min-h-screen grid place-items-center"><div className="text-muted-foreground">…</div></main>;
+  }
+
+  const counts = {
+    positif: entries.filter((e) => e.tag === "positif").length,
+    pacte: entries.filter((e) => e.tag === "pacte").length,
+    emotion: entries.filter((e) => e.tag === "emotion").length,
   };
-
-  const deleteEntry = (id: string) => {
-    update((s) => ({ ...s, entries: s.entries.filter((e) => e.id !== id) }));
-  };
-
-  const logout = () => {
-    update({ currentProfileId: null });
-    navigate({ to: "/login" });
-  };
-
-  const now = new Date();
-  const weekday = now.toLocaleDateString("fr-FR", { weekday: "long" });
-  const dayNum = now.toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
-
-  const toShareCount = myWeekEntries.filter((e) => e.willShare).length;
 
   return (
-    <main className="min-h-screen max-w-lg mx-auto pb-32 px-6">
-      {/* Header */}
-      <header className="pt-8 pb-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald text-accent-foreground serif text-xl font-medium border-2 border-ink">
-            {me.name.charAt(0).toUpperCase()}
-          </span>
-          <div>
-            <div className="font-semibold text-ink leading-tight">{me.name}</div>
-            <div className="tracking-ritual text-muted-foreground">
-              {weekday} · {dayNum}
-            </div>
-          </div>
+    <main className="min-h-screen mx-auto max-w-lg px-6 pt-8 pb-28">
+      <header className="flex items-center justify-between mb-8">
+        <div>
+          <div className="tracking-ritual text-muted-foreground">Bonjour</div>
+          <h1 className="serif text-3xl text-ink">{member.display_name}.</h1>
         </div>
         <button
-          onClick={logout}
-          className="rounded-full border-2 border-ink px-3 py-1.5 text-xs font-semibold text-ink hover:bg-sunshine transition"
+          onClick={() => { lock(); navigate({ to: "/login" }); }}
+          className="rounded-full border-2 border-ink p-2 text-ink"
+          aria-label="Verrouiller"
         >
-          Sortir
+          <Lock className="size-4" />
         </button>
       </header>
 
-      {/* Score bar */}
-      <section className="mt-2 rounded-2xl border-2 border-ink bg-ink text-primary-foreground p-4 flex items-center justify-between">
-        <div>
-          <div className="tracking-ritual opacity-60">Ma manche</div>
-          <div className="serif text-2xl">
-            {myWeekEntries.length}{" "}
-            <span className="opacity-60 text-base">
-              {myWeekEntries.length > 1 ? "dépôts" : "dépôt"}
-            </span>
-          </div>
+      <div className="rounded-3xl border-2 border-ink bg-card p-5 shadow-flat">
+        <div className="tracking-ritual text-muted-foreground mb-3">Ta manche cette semaine</div>
+        <div className="grid grid-cols-3 gap-3">
+          <Counter emoji="💚" n={counts.positif} label="+1" />
+          <Counter emoji="📜" n={counts.pacte} label="Pacte" />
+          <Counter emoji="🌊" n={counts.emotion} label="Émo" />
         </div>
-        <div className="text-right">
-          <div className="tracking-ritual opacity-60">À partager</div>
-          <div className="serif text-2xl text-emerald">
-            {toShareCount}{" "}
-            <span className="opacity-60 text-base text-primary-foreground">/ ven.</span>
-          </div>
-        </div>
-      </section>
+      </div>
 
-      {/* Pacte rappel */}
-      {state.pact.length > 0 && (
-        <section className="mt-4 rounded-2xl border-2 border-ink bg-card p-4">
-          <div className="tracking-ritual text-emerald mb-2">📜 Le pacte</div>
-          <ul className="space-y-1 text-[14px] text-ink">
-            {state.pact.slice(0, 3).map((r, i) => (
-              <li key={i} className="flex gap-2">
-                <span className="text-emerald font-semibold">{i + 1}.</span>
-                <span>{r}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
+      <h2 className="serif text-2xl text-ink mt-10 mb-4">Déposer</h2>
+      <div className="space-y-3">
+        {TAGS.map((t) => (
+          <Composer key={t.id} tag={t} member={member} pactRules={pact.map((p) => p.text)} onSaved={refreshEntries} />
+        ))}
+      </div>
+
+      <h2 className="serif text-2xl text-ink mt-10 mb-4">Tes dépôts</h2>
+      {entries.length === 0 ? (
+        <p className="text-sm text-muted-foreground italic">Rien encore. La page est blanche, tant mieux.</p>
+      ) : (
+        <ul className="space-y-3">
+          {entries.map((e) => (
+            <EntryCard key={e.id} entry={e} onChange={refreshEntries} />
+          ))}
+        </ul>
       )}
 
-      {/* Compose */}
-      <section className="mt-6">
-        <div className="rounded-3xl border-2 border-ink bg-card shadow-flat p-5">
-          <div className="tracking-ritual text-muted-foreground mb-3">Nouveau dépôt</div>
+      <Link to="/" className="block text-center mt-8 text-xs tracking-ritual text-muted-foreground">
+        <LogOut className="inline size-3 mr-1" /> Accueil
+      </Link>
 
-          <div className="flex gap-2 mb-4">
-            {TAGS.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => {
-                  setTag(t.id);
-                  setReform(null);
-                }}
-                className={`flex-1 rounded-2xl border-2 border-ink py-3 px-2 text-xs font-semibold transition ${
-                  tag === t.id ? `${t.bg} shadow-flat` : "bg-paper hover:bg-sunshine/40"
-                }`}
-              >
-                <div className="text-xl mb-0.5">{t.icon}</div>
-                {t.label}
-              </button>
-            ))}
-          </div>
+      <BottomNav />
+    </main>
+  );
+}
 
-          <p className="text-xs text-ink/60 mb-3">{TAGS.find((t) => t.id === tag)?.hint}</p>
+function Counter({ emoji, n, label }: { emoji: string; n: number; label: string }) {
+  return (
+    <div className="rounded-2xl bg-paper border-2 border-ink p-3 text-center">
+      <div className="text-2xl">{emoji}</div>
+      <div className="serif text-2xl text-emerald mt-1">{n}</div>
+      <div className="tracking-ritual text-muted-foreground">{label}</div>
+    </div>
+  );
+}
 
-          <textarea
-            value={raw}
-            onChange={(e) => {
-              setRaw(e.target.value);
-              setReform(null);
-            }}
-            rows={4}
-            placeholder={
-              tag === "emotion"
-                ? "Lâche tout. « il m'a soûlé·e quand… »"
-                : tag === "positif"
-                ? "Exemple : café apporté sans un mot, mardi matin."
-                : "Exemple : on a eu LA petite pique au dîner."
-            }
-            className="w-full bg-paper rounded-2xl border-2 border-ink p-3 text-ink placeholder:text-muted-foreground/60 outline-none focus:shadow-flat resize-none text-[15px] leading-relaxed transition"
-          />
+function Composer({
+  tag,
+  member,
+  pactRules,
+  onSaved,
+}: {
+  tag: { id: Tag; emoji: string; label: string; sub: string };
+  member: Member;
+  pactRules: string[];
+  onSaved: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const [translated, setTranslated] = useState<string | null>(null);
+  const [translating, setTranslating] = useState(false);
+  const [share, setShare] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
-          {reform && (
-            <div className="mt-4 rounded-2xl border-2 border-ink bg-emerald-soft p-4 animate-in fade-in slide-in-from-top-2 duration-500">
-              <div className="tracking-ritual text-ink mb-2">✨ Version diplomatique</div>
-              <p className="text-ink/90 leading-relaxed">{reform}</p>
+  const reset = () => { setText(""); setTranslated(null); setShare(true); setErr(null); setOpen(false); };
+
+  const translate = async () => {
+    if (!text.trim()) return;
+    setTranslating(true);
+    setErr(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("translate-emotion", {
+        body: { raw: text, pactRules },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setTranslated(data.reformulated);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Échec de la traduction.");
+    } finally {
+      setTranslating(false);
+    }
+  };
+
+  const save = async () => {
+    if (!text.trim() || busy) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const { error } = await supabase.from("entries").insert({
+        couple_id: member.couple_id,
+        author_id: member.user_id,
+        tag: tag.id,
+        raw: text.trim(),
+        reformulated: translated,
+        will_share: share,
+      });
+      if (error) throw error;
+      if (tag.id === "positif") {
+        await supabase.from("tree_events").insert({ couple_id: member.couple_id, kind: "flower" });
+        await supabase.from("memory_moments").insert({
+          couple_id: member.couple_id,
+          kind: "positive",
+          title: text.trim().slice(0, 80),
+          body: null,
+        });
+      }
+      reset();
+      onSaved();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Échec de l'enregistrement.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="w-full text-left flex items-center gap-4 rounded-2xl border-2 border-ink bg-card p-4 shadow-flat hover:bg-paper transition"
+      >
+        <div className="text-3xl">{tag.emoji}</div>
+        <div>
+          <div className="font-semibold text-ink">{tag.label}</div>
+          <div className="text-sm text-muted-foreground">{tag.sub}</div>
+        </div>
+      </button>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border-2 border-ink bg-card p-4 shadow-flat">
+      <div className="flex items-center gap-3 mb-3">
+        <div className="text-2xl">{tag.emoji}</div>
+        <div className="font-semibold text-ink flex-1">{tag.label}</div>
+        <button onClick={reset} className="text-muted-foreground text-xl leading-none">×</button>
+      </div>
+
+      <textarea
+        autoFocus
+        value={text}
+        onChange={(e) => { setText(e.target.value); setTranslated(null); }}
+        placeholder={
+          tag.id === "emotion"
+            ? "Dis-le brut. On le reformulera ensemble."
+            : tag.id === "pacte"
+              ? "Une règle qu'on a tenue ou franchie."
+              : "Un moment qui t'a fait du bien."
+        }
+        rows={3}
+        className="w-full bg-transparent p-2 text-[15px] text-ink placeholder:text-muted-foreground/60 outline-none resize-none border-b-2 border-ink/10"
+      />
+
+      {tag.id === "emotion" && (
+        <div className="mt-3">
+          <button
+            onClick={translate}
+            disabled={translating || !text.trim()}
+            className="text-xs tracking-ritual text-emerald inline-flex items-center gap-1 disabled:opacity-30"
+          >
+            <Sparkles className="size-3" />
+            {translating ? "Traduction…" : "Version CNV"}
+          </button>
+          {translated && (
+            <div className="mt-3 rounded-xl border-2 border-emerald bg-emerald/5 p-3 text-[15px] text-ink italic">
+              {translated}
             </div>
           )}
+        </div>
+      )}
 
-          <div className="flex gap-2 mt-4">
-            {canReformulate && (
-              <button
-                onClick={translate}
-                className="flex-1 rounded-full border-2 border-ink bg-paper py-3 tracking-ritual text-ink hover:bg-sunshine transition"
-              >
-                ✨ Traduire
-              </button>
-            )}
-            <button
-              onClick={addEntry}
-              disabled={!raw.trim()}
-              className="btn-flat flex-[2] rounded-full bg-emerald text-accent-foreground py-3 tracking-ritual disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              Déposer +
-            </button>
-          </div>
+      <label className="flex items-center gap-2 mt-4 text-sm text-ink cursor-pointer">
+        <input
+          type="checkbox"
+          checked={share}
+          onChange={(e) => setShare(e.target.checked)}
+          className="size-4 accent-emerald"
+        />
+        Partager vendredi
+      </label>
 
-          {saved && (
-            <p className="text-center text-xs font-semibold text-emerald mt-3 animate-in fade-in duration-300">
-              ✓ Dans ta boîte, au chaud.
-            </p>
+      {err && <p className="mt-3 text-sm text-destructive">{err}</p>}
+
+      <button
+        onClick={save}
+        disabled={!text.trim() || busy}
+        className="btn-flat w-full rounded-full bg-emerald text-accent-foreground py-3 tracking-ritual mt-4 disabled:opacity-40"
+      >
+        {busy ? "…" : "Déposer"}
+      </button>
+    </div>
+  );
+}
+
+function EntryCard({ entry, onChange }: { entry: Entry; onChange: () => void }) {
+  const tagInfo = TAGS.find((t) => t.id === entry.tag)!;
+  const remove = async () => {
+    await supabase.from("entries").delete().eq("id", entry.id);
+    onChange();
+  };
+  return (
+    <li className="rounded-2xl border-2 border-ink bg-card p-4 shadow-flat">
+      <div className="flex items-start gap-3">
+        <div className="text-2xl">{tagInfo.emoji}</div>
+        <div className="flex-1 min-w-0">
+          <div className="text-[15px] text-ink">{entry.raw}</div>
+          {entry.reformulated && (
+            <div className="mt-2 text-[14px] italic text-emerald border-l-2 border-emerald pl-3">
+              {entry.reformulated}
+            </div>
           )}
-        </div>
-      </section>
-
-      {/* Entries */}
-      <section className="mt-10">
-        <div className="flex items-baseline justify-between mb-4">
-          <h2 className="serif text-3xl text-ink">Cette semaine</h2>
-          <span className="tracking-ritual text-muted-foreground">
-            {myWeekEntries.length} {myWeekEntries.length > 1 ? "dépôts" : "dépôt"}
-          </span>
-        </div>
-
-        {myWeekEntries.length === 0 ? (
-          <div className="rounded-2xl border-2 border-dashed border-ink/30 bg-transparent p-8 text-center">
-            <div className="text-4xl mb-2">🎲</div>
-            <p className="text-sm text-ink/70 font-medium">
-              Plateau vierge. La partie commence dès ton premier dépôt.
-            </p>
+          <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
+            <span>{new Date(entry.created_at).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" })}</span>
+            {entry.will_share && <span className="tracking-ritual text-emerald">• vendredi</span>}
           </div>
-        ) : (
-          <div className="space-y-3">
-            {myWeekEntries.map((e) => {
-              const t = TAGS.find((x) => x.id === e.tag)!;
-              const d = new Date(e.createdAt);
-              return (
-                <article
-                  key={e.id}
-                  className={`rounded-2xl border-2 border-ink bg-card p-5 shadow-flat animate-in fade-in duration-500`}
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <span
-                      className={`inline-flex items-center gap-1.5 rounded-full border-2 border-ink ${t.bg} px-2.5 py-0.5 text-xs font-semibold text-ink`}
-                    >
-                      <span>{t.icon}</span>
-                      {t.label}
-                    </span>
-                    <div className="tracking-ritual text-muted-foreground">
-                      {d.toLocaleDateString("fr-FR", { weekday: "short" })} ·{" "}
-                      {d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-                    </div>
-                  </div>
-                  <p className="text-ink leading-relaxed text-[15px]">{e.raw}</p>
-                  {e.reformulated && (
-                    <p className="mt-3 text-[14px] italic text-ink/70 border-l-4 border-emerald pl-3">
-                      {e.reformulated}
-                    </p>
-                  )}
-                  <div className="flex items-center justify-between mt-4 pt-3 border-t-2 border-dashed border-ink/20">
-                    <button
-                      onClick={() => toggleShare(e.id)}
-                      className={`rounded-full border-2 border-ink px-3 py-1 text-xs font-semibold transition ${
-                        e.willShare
-                          ? "bg-emerald text-accent-foreground shadow-flat"
-                          : "bg-paper text-ink hover:bg-sunshine"
-                      }`}
-                    >
-                      {e.willShare ? "✓ Partagé vendredi" : "+ Partager vendredi"}
-                    </button>
-                    <button
-                      onClick={() => deleteEntry(e.id)}
-                      className="text-xs text-muted-foreground hover:text-destructive"
-                      aria-label="Retirer"
-                    >
-                      supprimer
-                    </button>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        )}
-      </section>
-
-      <footer className="text-center mt-12 text-xs text-muted-foreground px-6">
-        🔒 Tout reste ici, avec toi, jusqu'à vendredi 21h.
-      </footer>
-    </main>
+        </div>
+        <button onClick={remove} className="text-muted-foreground text-lg leading-none" aria-label="Supprimer">×</button>
+      </div>
+    </li>
   );
 }

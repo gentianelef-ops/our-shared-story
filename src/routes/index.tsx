@@ -1,104 +1,79 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { useNous } from "@/lib/nous-store";
+import { useCoupleSession } from "@/lib/use-couple-session";
 
 export const Route = createFileRoute("/")({
-  component: Index,
+  head: () => ({
+    meta: [
+      { title: "Nous — le jeu dont votre couple a besoin" },
+      {
+        name: "description",
+        content: "Parce que lire dans les pensées, c'est épuisant. Chacun joue sa partie. Vendredi, vous comparez les scores.",
+      },
+    ],
+  }),
+  component: Home,
 });
 
-function Index() {
-  const { state, hydrated } = useNous();
+function Home() {
+  const { loading, member } = useCoupleSession();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!hydrated) return;
-    if (state.onboarded && state.currentProfileId) {
-      navigate({ to: "/journal" });
-    }
-  }, [hydrated, state.onboarded, state.currentProfileId, navigate]);
+    if (!loading && member) navigate({ to: "/journal" });
+  }, [loading, member, navigate]);
 
   return (
-    <main className="min-h-screen flex flex-col px-6 py-10">
-      {/* Top badge */}
-      <div className="flex items-center justify-between">
-        <div className="inline-flex items-center gap-2 rounded-full bg-ink px-3 py-1.5">
-          <span className="h-2 w-2 rounded-full bg-emerald" />
-          <span className="tracking-ritual text-primary-foreground">NOUS · v1</span>
-        </div>
-        <span className="tracking-ritual text-muted-foreground">2 joueurs</span>
+    <main className="min-h-screen mx-auto max-w-lg px-6 pt-14 pb-24">
+      <div className="flex items-center gap-2 mb-12">
+        <span className="inline-block size-3 rounded-full bg-emerald" />
+        <span className="tracking-ritual text-ink">Nous</span>
       </div>
 
-      <section className="flex-1 flex flex-col justify-center max-w-md w-full mx-auto text-center py-12">
-        {/* Floating game pills */}
-        <div className="flex items-center justify-center gap-2 mb-8">
-          <Pill className="bg-sunshine">💛 +1</Pill>
-          <Pill className="bg-emerald-soft">🎯 pacte</Pill>
-          <Pill className="bg-coral/80 text-primary-foreground">🔥 émotion</Pill>
-        </div>
+      <h1 className="serif text-5xl text-ink leading-[0.95]">
+        Parce que lire dans les pensées,
+        <span className="italic text-emerald"> c'est épuisant.</span>
+      </h1>
+      <p className="mt-6 text-ink/70 text-[16px] leading-relaxed">
+        Chacun joue sa partie de la semaine. Vendredi soir, on se révèle ce qu'on a vraiment vécu.
+      </p>
 
-        <h1 className="serif text-5xl sm:text-6xl text-ink leading-[0.95] tracking-tight">
-          Parce que lire dans les pensées,
-          <br />
-          <span className="italic text-emerald">c'est épuisant.</span>
-        </h1>
+      <div className="mt-10 space-y-3">
+        <Pill emoji="💚" label="+1" sub="un moment qui fait du bien" />
+        <Pill emoji="📜" label="Pacte" sub="une règle franchie ou tenue" />
+        <Pill emoji="🌊" label="Émotion" sub="dit en CNV, pas en reproche" />
+      </div>
 
-        <p className="mt-6 text-ink/75 leading-relaxed text-[17px] max-w-sm mx-auto">
-          Chacun joue sa partie de la semaine en solo. <br />
-          Vendredi soir, vous comparez les scores.
-        </p>
+      <div className="mt-12 grid gap-3">
+        <Link
+          to="/onboarding"
+          className="btn-flat block rounded-full bg-emerald text-accent-foreground py-4 text-center tracking-ritual"
+        >
+          Créer un couple ✨
+        </Link>
+        <Link
+          to="/login"
+          className="btn-flat block rounded-full bg-paper text-ink py-4 text-center tracking-ritual"
+        >
+          J'ai un code →
+        </Link>
+      </div>
 
-        <div className="mt-10 flex flex-col gap-3">
-          {state.onboarded ? (
-            <Link
-              to="/login"
-              className="btn-flat w-full rounded-full bg-emerald text-accent-foreground py-4 tracking-ritual"
-            >
-              Reprendre la partie →
-            </Link>
-          ) : (
-            <Link
-              to="/onboarding"
-              className="btn-flat w-full rounded-full bg-emerald text-accent-foreground py-4 tracking-ritual"
-            >
-              On joue ? →
-            </Link>
-          )}
-          <p className="text-xs text-muted-foreground mt-4">
-            2 minutes par jour. Pas d'inscription. Pas de pub.
-          </p>
-        </div>
-      </section>
-
-      {/* How it works mini */}
-      <section className="max-w-md w-full mx-auto grid grid-cols-3 gap-2 pb-4">
-        <Step n="1" label="Tu notes" sub="en solo" />
-        <Step n="2" label="Il/elle note" sub="en solo" />
-        <Step n="3" label="Vendredi" sub="réveillon" />
-      </section>
-
-      <footer className="text-center text-xs text-muted-foreground mt-6 italic">
-        « Les couples qui parlent durent. Les autres aussi, mais moins bien. »
-      </footer>
+      <p className="mt-10 text-center text-xs text-muted-foreground italic">
+        « On s'aime mieux quand on s'écoute autrement. »
+      </p>
     </main>
   );
 }
 
-function Pill({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+function Pill({ emoji, label, sub }: { emoji: string; label: string; sub: string }) {
   return (
-    <span
-      className={`inline-flex items-center rounded-full border-2 border-ink px-3 py-1 text-xs font-semibold text-ink shadow-flat ${className}`}
-    >
-      {children}
-    </span>
-  );
-}
-
-function Step({ n, label, sub }: { n: string; label: string; sub: string }) {
-  return (
-    <div className="rounded-2xl border-2 border-ink bg-card p-3 text-center">
-      <div className="serif text-2xl text-emerald font-medium">{n}</div>
-      <div className="text-xs font-semibold text-ink mt-1">{label}</div>
-      <div className="text-[10px] text-muted-foreground uppercase tracking-wider">{sub}</div>
+    <div className="flex items-center gap-4 rounded-2xl border-2 border-ink bg-card p-4 shadow-flat">
+      <div className="text-3xl">{emoji}</div>
+      <div>
+        <div className="font-semibold text-ink">{label}</div>
+        <div className="text-sm text-muted-foreground">{sub}</div>
+      </div>
     </div>
   );
 }
