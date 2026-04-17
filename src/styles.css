@@ -172,12 +172,26 @@
 @layer utilities {
   .text-ink { color: var(--ink); }
   .bg-paper { background-color: var(--paper); }
+  .bg-emerald { background-color: var(--emerald); }
+  .text-emerald { color: var(--emerald); }
+  .bg-sunshine { background-color: var(--sunshine); }
+  .bg-coral { background-color: var(--coral); }
   .shadow-soft { box-shadow: var(--shadow-soft); }
+  .shadow-flat { box-shadow: var(--shadow-flat); }
   .divider-gold {
     width: 2.5rem;
-    height: 1px;
-    background: var(--gold);
-    opacity: 0.6;
+    height: 2px;
+    background: var(--ink);
+    border-radius: 999px;
   }
-  .tracking-ritual { letter-spacing: 0.3em; text-transform: uppercase; font-size: 0.7rem; }
+  .tracking-ritual { letter-spacing: 0.18em; text-transform: uppercase; font-size: 0.7rem; font-weight: 600; }
+  .btn-flat {
+    border: 2px solid var(--ink);
+    box-shadow: var(--shadow-flat);
+    transition: transform 120ms ease, box-shadow 120ms ease;
+  }
+  .btn-flat:active:not(:disabled) {
+    transform: translateY(2px);
+    box-shadow: 0 1px 0 0 var(--ink);
+  }
 }
