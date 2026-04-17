@@ -32,17 +32,17 @@ export const Route = createRootRoute({
         name: "viewport",
         content: "width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1",
       },
-      { title: "Nous — un espace intime pour les couples" },
+      { title: "Nous — le jeu dont votre couple a besoin" },
       {
         name: "description",
         content:
-          "Nous est un journal à deux : chacun dépose sa semaine en privé, puis vous l'ouvrez ensemble le vendredi soir.",
+          "Parce que lire dans les pensées, c'est épuisant. Chacun joue sa partie. Vendredi, vous comparez les scores.",
       },
-      { name: "theme-color", content: "#8a5a52" },
-      { property: "og:title", content: "Nous — un espace intime pour les couples" },
+      { name: "theme-color", content: "#0e1a2c" },
+      { property: "og:title", content: "Nous — le jeu dont votre couple a besoin" },
       {
         property: "og:description",
-        content: "Un journal intime à deux, révélé ensemble chaque vendredi.",
+        content: "Chacun joue sa partie. Vendredi, vous comparez les scores.",
       },
       { property: "og:type", content: "website" },
     ],
