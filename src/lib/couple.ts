@@ -39,31 +39,27 @@ export async function getCoupleMembers(coupleId: string): Promise<Member[]> {
 
 /** Create a new couple (slot 'a') with a fresh code. Retries on collision. */
 export async function createCouple(displayName: string, pin: string): Promise<{ couple: Couple; member: Member }> {
-  const uid = await ensureAuth();
+  await ensureAuth();
   let lastError: unknown = null;
   for (let i = 0; i < 5; i++) {
     const code = genCode();
-    const { data: couple, error: cErr } = await supabase
-      .from("couples")
-      .insert({ code })
-      .select("*")
-      .single();
-    if (cErr) {
-      lastError = cErr;
-      continue;
+    const { data, error } = await supabase.rpc("create_couple", {
+      _code: code,
+      _display_name: displayName.trim(),
+      _pin: pin,
+    });
+    if (error) {
+      // unique violation on code — retry
+      if (error.code === "23505") {
+        lastError = error;
+        continue;
+      }
+      throw error;
     }
-    const { data: member, error: mErr } = await supabase
-      .from("members")
-      .insert({
-        user_id: uid,
-        couple_id: couple.id,
-        display_name: displayName.trim(),
-        pin,
-        slot: "a",
-      })
-      .select("*")
-      .single();
-    if (mErr) throw mErr;
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) throw new Error("Réponse vide du serveur");
+    const { data: couple } = await supabase.from("couples").select("*").eq("id", row.couple_id).single();
+    const { data: member } = await supabase.from("members").select("*").eq("id", row.member_id).single();
     return { couple: couple as Couple, member: member as Member };
   }
   throw lastError ?? new Error("Impossible de créer un code unique");
@@ -71,41 +67,23 @@ export async function createCouple(displayName: string, pin: string): Promise<{ 
 
 /** Join an existing couple by code, claiming slot 'b'. */
 export async function joinCouple(code: string, displayName: string, pin: string): Promise<{ couple: Couple; member: Member }> {
-  const uid = await ensureAuth();
+  await ensureAuth();
   const cleanCode = code.trim().toUpperCase();
 
-  const { data: coupleId, error: rpcErr } = await supabase.rpc("join_couple_by_code", { _code: cleanCode });
-  if (rpcErr) {
-    if (rpcErr.message.includes("COUPLE_NOT_FOUND")) throw new Error("Ce code n'existe pas.");
-    throw rpcErr;
+  const { data, error } = await supabase.rpc("join_couple", {
+    _code: cleanCode,
+    _display_name: displayName.trim(),
+    _pin: pin,
+  });
+  if (error) {
+    if (error.message.includes("COUPLE_NOT_FOUND")) throw new Error("Ce code n'existe pas.");
+    if (error.message.includes("COUPLE_FULL")) throw new Error("Ce couple est déjà complet.");
+    throw error;
   }
-
-  // Check slot availability
-  const { data: existing } = await supabase.from("members").select("slot,user_id").eq("couple_id", coupleId);
-  if (existing && existing.some((m) => m.user_id === uid)) {
-    // Already a member — fetch and return
-    const { data: me } = await supabase.from("members").select("*").eq("user_id", uid).single();
-    const { data: c } = await supabase.from("couples").select("*").eq("id", coupleId).single();
-    return { couple: c as Couple, member: me as Member };
-  }
-  if ((existing?.length ?? 0) >= 2) throw new Error("Ce couple est déjà complet.");
-
-  const takenA = existing?.some((m) => m.slot === "a");
-  const slot = takenA ? "b" : "a";
-
-  const { data: member, error: mErr } = await supabase
-    .from("members")
-    .insert({
-      user_id: uid,
-      couple_id: coupleId,
-      display_name: displayName.trim(),
-      pin,
-      slot,
-    })
-    .select("*")
-    .single();
-  if (mErr) throw mErr;
-  const { data: couple } = await supabase.from("couples").select("*").eq("id", coupleId).single();
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) throw new Error("Réponse vide du serveur");
+  const { data: couple } = await supabase.from("couples").select("*").eq("id", row.couple_id).single();
+  const { data: member } = await supabase.from("members").select("*").eq("id", row.member_id).single();
   return { couple: couple as Couple, member: member as Member };
 }
 

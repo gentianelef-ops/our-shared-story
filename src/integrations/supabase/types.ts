@@ -283,8 +283,23 @@ export type Database = {
     }
     Functions: {
       both_answered: { Args: { _ritual_id: string }; Returns: boolean }
+      create_couple: {
+        Args: { _code: string; _display_name: string; _pin: string }
+        Returns: {
+          code: string
+          couple_id: string
+          member_id: string
+        }[]
+      }
       current_couple_id: { Args: never; Returns: string }
       is_couple_member: { Args: { _couple_id: string }; Returns: boolean }
+      join_couple: {
+        Args: { _code: string; _display_name: string; _pin: string }
+        Returns: {
+          couple_id: string
+          member_id: string
+        }[]
+      }
       join_couple_by_code: { Args: { _code: string }; Returns: string }
     }
     Enums: {
