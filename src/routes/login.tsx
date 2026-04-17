@@ -82,7 +82,9 @@ function Login() {
       unlock(m.id);
       navigate({ to: "/journal" });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Impossible de rejoindre.");
+      console.error("joinCouple failed:", e);
+      const msg = e instanceof Error ? e.message : JSON.stringify(e);
+      setError(`Impossible de rejoindre : ${msg}`);
     } finally {
       setBusy(false);
     }
