@@ -39,31 +39,27 @@ export async function getCoupleMembers(coupleId: string): Promise<Member[]> {
 
 /** Create a new couple (slot 'a') with a fresh code. Retries on collision. */
 export async function createCouple(displayName: string, pin: string): Promise<{ couple: Couple; member: Member }> {
-  const uid = await ensureAuth();
+  await ensureAuth();
   let lastError: unknown = null;
   for (let i = 0; i < 5; i++) {
     const code = genCode();
-    const { data: couple, error: cErr } = await supabase
-      .from("couples")
-      .insert({ code })
-      .select("*")
-      .single();
-    if (cErr) {
-      lastError = cErr;
-      continue;
+    const { data, error } = await supabase.rpc("create_couple", {
+      _code: code,
+      _display_name: displayName.trim(),
+      _pin: pin,
+    });
+    if (error) {
+      // unique violation on code — retry
+      if (error.code === "23505") {
+        lastError = error;
+        continue;
+      }
+      throw error;
     }
-    const { data: member, error: mErr } = await supabase
-      .from("members")
-      .insert({
-        user_id: uid,
-        couple_id: couple.id,
-        display_name: displayName.trim(),
-        pin,
-        slot: "a",
-      })
-      .select("*")
-      .single();
-    if (mErr) throw mErr;
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) throw new Error("Réponse vide du serveur");
+    const { data: couple } = await supabase.from("couples").select("*").eq("id", row.couple_id).single();
+    const { data: member } = await supabase.from("members").select("*").eq("id", row.member_id).single();
     return { couple: couple as Couple, member: member as Member };
   }
   throw lastError ?? new Error("Impossible de créer un code unique");
