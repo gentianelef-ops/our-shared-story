@@ -15,7 +15,7 @@ export function useStorm(coupleId: string | undefined) {
     })();
 
     const channel = supabase
-      .channel(`storms:${coupleId}`)
+      .channel(`storms:${coupleId}:${Math.random().toString(36).slice(2, 8)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "storms", filter: `couple_id=eq.${coupleId}` }, async () => {
         const s = await getActiveStorm(coupleId);
         if (active) setStorm(s);
