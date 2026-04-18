@@ -216,12 +216,52 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          couple_id: string
+          created_at: string
+          id: string
+          kind: string
+          payload: Json
+          read_at: string | null
+          recipient_id: string
+        }
+        Insert: {
+          couple_id: string
+          created_at?: string
+          id?: string
+          kind: string
+          payload?: Json
+          read_at?: string | null
+          recipient_id: string
+        }
+        Update: {
+          couple_id?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          payload?: Json
+          read_at?: string | null
+          recipient_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_couple_id_fkey"
+            columns: ["couple_id"]
+            isOneToOne: false
+            referencedRelation: "couples"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pact_rules: {
         Row: {
           couple_id: string
           created_at: string
           created_by: string | null
           id: string
+          proposed_at: string
+          status: string
           text: string
         }
         Insert: {
@@ -229,6 +269,8 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          proposed_at?: string
+          status?: string
           text: string
         }
         Update: {
@@ -236,11 +278,45 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          proposed_at?: string
+          status?: string
           text?: string
         }
         Relationships: [
           {
             foreignKeyName: "pact_rules_couple_id_fkey"
+            columns: ["couple_id"]
+            isOneToOne: false
+            referencedRelation: "couples"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      storms: {
+        Row: {
+          couple_id: string
+          ended_at: string | null
+          id: string
+          started_at: string
+          started_by: string
+        }
+        Insert: {
+          couple_id: string
+          ended_at?: string | null
+          id?: string
+          started_at?: string
+          started_by: string
+        }
+        Update: {
+          couple_id?: string
+          ended_at?: string | null
+          id?: string
+          started_at?: string
+          started_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storms_couple_id_fkey"
             columns: ["couple_id"]
             isOneToOne: false
             referencedRelation: "couples"
