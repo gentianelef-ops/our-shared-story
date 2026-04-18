@@ -5,7 +5,6 @@ import { isUnlocked } from "@/lib/local-lock";
 import { useStorm } from "@/lib/use-storm";
 import { startStorm, endStorm } from "@/lib/storm";
 import { supabase } from "@/integrations/supabase/client";
-import type { Member } from "@/lib/types";
 
 export const Route = createFileRoute("/tempete")({
   head: () => ({
@@ -23,7 +22,7 @@ const PHASE_LABEL: Record<Phase, string> = { in: "Inspire", hold: "Retiens", out
 const NEXT: Record<Phase, Phase> = { in: "hold", hold: "out", out: "in" };
 
 function Tempete() {
-  const { loading, member, couple, members } = useCoupleSession();
+  const { loading, member, couple, partner } = useCoupleSession();
   const navigate = useNavigate();
   const { storm, refresh } = useStorm(couple?.id);
   const [starting, setStarting] = useState(false);
@@ -39,7 +38,6 @@ function Tempete() {
     if (loading || !member || !couple || storm || starting) return;
     void (async () => {
       setStarting(true);
-      const partner = (members ?? []).find((m: Member) => m.user_id !== member.user_id);
       try {
         await startStorm(couple.id, member.user_id, partner?.user_id ?? null, member.display_name);
         await refresh();
@@ -47,7 +45,7 @@ function Tempete() {
         setStarting(false);
       }
     })();
-  }, [loading, member, couple, members, storm, starting, refresh]);
+  }, [loading, member, couple, partner, storm, starting, refresh]);
 
   if (loading || !member || !couple) {
     return <main className="min-h-screen grid place-items-center"><div className="text-muted-foreground">…</div></main>;
@@ -58,8 +56,6 @@ function Tempete() {
   const onEnd = async () => {
     if (!storm) return;
     await endStorm(storm.id);
-    // notify partner
-    const partner = (members ?? []).find((m: Member) => m.user_id !== member.user_id);
     if (partner) {
       await supabase.from("notifications").insert({
         couple_id: couple.id,
