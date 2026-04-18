@@ -20,7 +20,7 @@ export function useNotifications(userId: string | undefined, coupleId: string | 
     if (!userId) return;
     void refresh();
     const channel = supabase
-      .channel(`notifs:${userId}`)
+      .channel(`notifs:${userId}:${Math.random().toString(36).slice(2, 8)}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `recipient_id=eq.${userId}` }, () => {
         void refresh();
       })
