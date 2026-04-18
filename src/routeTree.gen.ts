@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VendrediRouteImport } from './routes/vendredi'
+import { Route as TempeteRouteImport } from './routes/tempete'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as NousRouteImport } from './routes/nous'
 import { Route as LoginRouteImport } from './routes/login'
@@ -19,6 +20,11 @@ import { Route as IndexRouteImport } from './routes/index'
 const VendrediRoute = VendrediRouteImport.update({
   id: '/vendredi',
   path: '/vendredi',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TempeteRoute = TempeteRouteImport.update({
+  id: '/tempete',
+  path: '/tempete',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OnboardingRoute = OnboardingRouteImport.update({
@@ -53,6 +59,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/nous': typeof NousRoute
   '/onboarding': typeof OnboardingRoute
+  '/tempete': typeof TempeteRoute
   '/vendredi': typeof VendrediRoute
 }
 export interface FileRoutesByTo {
@@ -61,6 +68,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/nous': typeof NousRoute
   '/onboarding': typeof OnboardingRoute
+  '/tempete': typeof TempeteRoute
   '/vendredi': typeof VendrediRoute
 }
 export interface FileRoutesById {
@@ -70,13 +78,28 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/nous': typeof NousRoute
   '/onboarding': typeof OnboardingRoute
+  '/tempete': typeof TempeteRoute
   '/vendredi': typeof VendrediRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/journal' | '/login' | '/nous' | '/onboarding' | '/vendredi'
+  fullPaths:
+    | '/'
+    | '/journal'
+    | '/login'
+    | '/nous'
+    | '/onboarding'
+    | '/tempete'
+    | '/vendredi'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/journal' | '/login' | '/nous' | '/onboarding' | '/vendredi'
+  to:
+    | '/'
+    | '/journal'
+    | '/login'
+    | '/nous'
+    | '/onboarding'
+    | '/tempete'
+    | '/vendredi'
   id:
     | '__root__'
     | '/'
@@ -84,6 +107,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/nous'
     | '/onboarding'
+    | '/tempete'
     | '/vendredi'
   fileRoutesById: FileRoutesById
 }
@@ -93,6 +117,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   NousRoute: typeof NousRoute
   OnboardingRoute: typeof OnboardingRoute
+  TempeteRoute: typeof TempeteRoute
   VendrediRoute: typeof VendrediRoute
 }
 
@@ -103,6 +128,13 @@ declare module '@tanstack/react-router' {
       path: '/vendredi'
       fullPath: '/vendredi'
       preLoaderRoute: typeof VendrediRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tempete': {
+      id: '/tempete'
+      path: '/tempete'
+      fullPath: '/tempete'
+      preLoaderRoute: typeof TempeteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/onboarding': {
@@ -149,8 +181,18 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   NousRoute: NousRoute,
   OnboardingRoute: OnboardingRoute,
+  TempeteRoute: TempeteRoute,
   VendrediRoute: VendrediRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
