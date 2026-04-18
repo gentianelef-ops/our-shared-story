@@ -2,9 +2,12 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCoupleSession } from "@/lib/use-couple-session";
+import { useStorm } from "@/lib/use-storm";
 import { isUnlocked } from "@/lib/local-lock";
 import { computeStage, type TreeStage } from "@/lib/couple";
 import { BottomNav } from "@/components/bottom-nav";
+import { StormButton } from "@/components/storm-button";
+import { NotificationBell } from "@/components/notification-bell";
 import type { PactRule, MemoryMoment, TreeEvent } from "@/lib/types";
 
 export const Route = createFileRoute("/nous")({
@@ -19,6 +22,7 @@ export const Route = createFileRoute("/nous")({
 
 function Nous() {
   const { loading, member, couple, partner } = useCoupleSession();
+  const { storm } = useStorm(couple?.id);
   const navigate = useNavigate();
   const [pact, setPact] = useState<PactRule[]>([]);
   const [moments, setMoments] = useState<MemoryMoment[]>([]);
@@ -73,10 +77,18 @@ function Nous() {
   return (
     <main className="min-h-screen mx-auto max-w-lg px-6 pt-8 pb-28">
       <header className="mb-6">
-        <div className="tracking-ritual text-muted-foreground">Vous deux</div>
-        <h1 className="serif text-3xl text-ink">
-          {member.display_name} <span className="text-emerald">&</span> {partner?.display_name ?? "…"}
-        </h1>
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <div className="tracking-ritual text-muted-foreground">Vous deux</div>
+            <h1 className="serif text-3xl text-ink">
+              {member.display_name} <span className="text-emerald">&</span> {partner?.display_name ?? "…"}
+            </h1>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <StormButton coupleId={couple.id} />
+            <NotificationBell userId={member.user_id} coupleId={couple.id} />
+          </div>
+        </div>
         <p className="text-xs text-muted-foreground mt-1">
           Vous cultivez votre relation depuis <span className="text-ink font-semibold">{weeks} semaine{weeks > 1 ? "s" : ""}</span>.
         </p>
@@ -85,15 +97,26 @@ function Nous() {
             En attente de l'autre. Donne le code <span className="serif text-emerald font-semibold tracking-widest">{couple.code}</span> à ton/ta partenaire.
           </div>
         )}
+        {storm && (
+          <div className="mt-4 rounded-2xl border-2 border-storm bg-storm-soft/40 p-4 text-sm text-ink flex items-center gap-3">
+            <span className="text-2xl">🌧️</span>
+            <div className="flex-1">
+              <div className="font-semibold">
+                {storm.started_by === member.user_id ? "Tu as demandé un peu de calme." : `${partner?.display_name ?? "L'autre"} a besoin d'espace.`}
+              </div>
+              <div className="text-xs text-muted-foreground mt-0.5">Pas de détails. Juste le signal.</div>
+            </div>
+          </div>
+        )}
       </header>
 
-      <section className="rounded-3xl border-2 border-ink bg-card p-6 shadow-flat">
+      <section className={`rounded-3xl border-2 border-ink p-6 shadow-flat transition-colors ${storm ? "bg-storm-soft/30" : "bg-card"}`}>
         <div className="tracking-ritual text-muted-foreground mb-2">L'Arbre du couple</div>
         <div className="flex justify-center my-4">
-          <Tree stage={stage} flowers={Math.min(flowers, 12)} />
+          <Tree stage={stage} flowers={Math.min(flowers, 12)} rainy={!!storm} />
         </div>
         <div className="text-center text-xs text-muted-foreground">
-          {labelStage(stage)} · {flowers} fleur{flowers > 1 ? "s" : ""} · {branches} branche{branches > 1 ? "s" : ""}
+          {storm ? "🌧️ Le ciel pleure un peu en ce moment." : `${labelStage(stage)} · ${flowers} fleur${flowers > 1 ? "s" : ""} · ${branches} branche${branches > 1 ? "s" : ""}`}
         </div>
       </section>
 
@@ -162,15 +185,33 @@ function labelStage(s: TreeStage) {
   }[s];
 }
 
-function Tree({ stage, flowers }: { stage: TreeStage; flowers: number }) {
+function Tree({ stage, flowers, rainy = false }: { stage: TreeStage; flowers: number; rainy?: boolean }) {
   // Minimal SVG line-art tree, evolves with stage
   const showSprout = stage !== "seed";
   const showTrunk = stage === "shrub" || stage === "tree" || stage === "blooming";
   const showCanopy = stage === "tree" || stage === "blooming";
-  const showBlossom = stage === "blooming";
+  const showBlossom = stage === "blooming" && !rainy;
 
   return (
     <svg viewBox="0 0 200 220" className="w-48 h-56">
+      {rainy && (
+        <g className="text-storm">
+          {Array.from({ length: 14 }).map((_, i) => (
+            <line
+              key={i}
+              x1={15 + i * 13}
+              y1={0}
+              x2={12 + i * 13}
+              y2={8}
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              className="rain-drop"
+              style={{ animationDelay: `${(i % 5) * 0.3}s`, transformOrigin: `${15 + i * 13}px 0px` } as React.CSSProperties}
+            />
+          ))}
+        </g>
+      )}
       {/* Ground */}
       <line x1="20" y1="200" x2="180" y2="200" stroke="currentColor" strokeWidth="2" className="text-ink" strokeLinecap="round" />
       {/* Seed */}
