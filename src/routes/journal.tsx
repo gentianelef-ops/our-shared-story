@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCoupleSession } from "@/lib/use-couple-session";
 import { isUnlocked, lock } from "@/lib/local-lock";
 import { BottomNav } from "@/components/bottom-nav";
+import { StormButton } from "@/components/storm-button";
+import { NotificationBell } from "@/components/notification-bell";
 import type { Entry, PactRule, Tag, Member } from "@/lib/types";
 import { Sparkles, Lock, LogOut } from "lucide-react";
 
@@ -81,13 +83,17 @@ function Journal() {
           <div className="tracking-ritual text-muted-foreground">Bonjour</div>
           <h1 className="serif text-3xl text-ink">{member.display_name}.</h1>
         </div>
-        <button
-          onClick={() => { lock(); navigate({ to: "/login" }); }}
-          className="rounded-full border-2 border-ink p-2 text-ink"
-          aria-label="Verrouiller"
-        >
-          <Lock className="size-4" />
-        </button>
+        <div className="flex items-center gap-2">
+          <StormButton coupleId={couple.id} />
+          <NotificationBell userId={member.user_id} coupleId={couple.id} />
+          <button
+            onClick={() => { lock(); navigate({ to: "/login" }); }}
+            className="rounded-full border-2 border-ink p-2 text-ink"
+            aria-label="Verrouiller"
+          >
+            <Lock className="size-4" />
+          </button>
+        </div>
       </header>
 
       <div className="rounded-3xl border-2 border-ink bg-card p-5 shadow-flat">
