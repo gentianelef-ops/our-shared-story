@@ -43,7 +43,7 @@ function Login() {
             {member.display_name[0]?.toUpperCase()}
           </div>
           <h1 className="serif text-4xl text-ink mt-6">Re, {member.display_name}.</h1>
-          <p className="text-sm text-muted-foreground mt-2">Code à 4 chiffres pour ouvrir ta manche.</p>
+          <p className="text-sm text-muted-foreground mt-2">Code à 4 chiffres pour accéder à ton espace.</p>
         </div>
         <form onSubmit={submitPin} className="mt-10">
           <input

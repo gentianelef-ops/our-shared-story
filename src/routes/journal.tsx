@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCoupleSession } from "@/lib/use-couple-session";
@@ -7,12 +7,12 @@ import { BottomNav } from "@/components/bottom-nav";
 import { StormButton } from "@/components/storm-button";
 import { NotificationBell } from "@/components/notification-bell";
 import type { Entry, PactRule, Tag, Member } from "@/lib/types";
-import { Sparkles, Lock, LogOut } from "lucide-react";
+import { Lock, LogOut } from "lucide-react";
 
 export const Route = createFileRoute("/journal")({
   head: () => ({
     meta: [
-      { title: "Ma manche — Nous" },
+      { title: "JE — Nous" },
       { name: "description", content: "Dépose ce qui compte. Vendredi, on partage." },
     ],
   }),
@@ -21,8 +21,13 @@ export const Route = createFileRoute("/journal")({
 
 const TAGS: { id: Tag; emoji: string; label: string; sub: string }[] = [
   { id: "positif", emoji: "💚", label: "+1", sub: "Un moment qui fait du bien" },
-  { id: "pacte", emoji: "📜", label: "Pacte", sub: "Une règle franchie ou tenue" },
-  { id: "emotion", emoji: "🌊", label: "Émotion", sub: "À traduire en CNV" },
+  {
+    id: "pacte",
+    emoji: "💡",
+    label: "Idée pacte",
+    sub: "Propose une nouvelle règle pour vendredi",
+  },
+  { id: "emotion", emoji: "🌊", label: "Émotion", sub: "Ce que tu ressens, sans filtre" },
 ];
 
 function Journal() {
@@ -34,8 +39,14 @@ function Journal() {
 
   useEffect(() => {
     if (loading) return;
-    if (!member) { navigate({ to: "/" }); return; }
-    if (!isUnlocked(member.id)) { navigate({ to: "/login" }); return; }
+    if (!member) {
+      navigate({ to: "/" });
+      return;
+    }
+    if (!isUnlocked(member.id)) {
+      navigate({ to: "/login" });
+      return;
+    }
     setUnlocked(true);
   }, [loading, member, navigate]);
 
@@ -67,14 +78,18 @@ function Journal() {
   };
 
   if (loading || !unlocked || !member || !couple) {
-    return <main className="min-h-screen grid place-items-center"><div className="text-muted-foreground">…</div></main>;
+    return (
+      <main className="min-h-screen grid place-items-center">
+        <div className="text-muted-foreground">…</div>
+      </main>
+    );
   }
 
-  const counts = {
-    positif: entries.filter((e) => e.tag === "positif").length,
-    pacte: entries.filter((e) => e.tag === "pacte").length,
-    emotion: entries.filter((e) => e.tag === "emotion").length,
-  };
+  const positives = entries.filter((e) => e.tag === "positif").length;
+  const emotions = entries.filter((e) => e.tag === "emotion").length;
+  const total = entries.length;
+  const score = total === 0 ? 0 : (positives - emotions) / total;
+  const meterPos = 50 + Math.max(-1, Math.min(1, score)) * 40;
 
   return (
     <main className="min-h-screen mx-auto max-w-lg px-6 pt-8 pb-28">
@@ -87,7 +102,10 @@ function Journal() {
           <StormButton coupleId={couple.id} />
           <NotificationBell userId={member.user_id} coupleId={couple.id} />
           <button
-            onClick={() => { lock(); navigate({ to: "/login" }); }}
+            onClick={() => {
+              lock();
+              navigate({ to: "/login" });
+            }}
             className="rounded-full border-2 border-ink p-2 text-ink"
             aria-label="Verrouiller"
           >
@@ -97,24 +115,34 @@ function Journal() {
       </header>
 
       <div className="rounded-3xl border-2 border-ink bg-card p-5 shadow-flat">
-        <div className="tracking-ritual text-muted-foreground mb-3">Ta manche cette semaine</div>
-        <div className="grid grid-cols-3 gap-3">
-          <Counter emoji="💚" n={counts.positif} label="+1" />
-          <Counter emoji="📜" n={counts.pacte} label="Pacte" />
-          <Counter emoji="🌊" n={counts.emotion} label="Émo" />
+        <div className="tracking-ritual text-muted-foreground mb-3">
+          Ta semaine en un coup d'œil
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-xl">😔</span>
+          <div className="relative flex-1 h-2 rounded-full bg-ink/10 overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-storm/40 via-emerald/20 to-emerald/40" />
+            <div
+              className="absolute top-1/2 -translate-y-1/2 size-4 rounded-full border-2 border-ink bg-paper shadow-flat transition-all"
+              style={{ left: `calc(${meterPos}% - 8px)` }}
+            />
+          </div>
+          <span className="text-xl">😊</span>
         </div>
       </div>
 
       <h2 className="serif text-2xl text-ink mt-10 mb-4">Déposer</h2>
       <div className="space-y-3">
         {TAGS.map((t) => (
-          <Composer key={t.id} tag={t} member={member} pactRules={pact.map((p) => p.text)} onSaved={refreshEntries} />
+          <Composer key={t.id} tag={t} member={member} onSaved={refreshEntries} />
         ))}
       </div>
 
       <h2 className="serif text-2xl text-ink mt-10 mb-4">Tes dépôts</h2>
       {entries.length === 0 ? (
-        <p className="text-sm text-muted-foreground italic">Rien encore. La page est blanche, tant mieux.</p>
+        <p className="text-sm text-muted-foreground italic">
+          Rien encore. La page est blanche, tant mieux.
+        </p>
       ) : (
         <ul className="space-y-3">
           {entries.map((e) => (
@@ -123,62 +151,41 @@ function Journal() {
         </ul>
       )}
 
-      <Link to="/" className="block text-center mt-8 text-xs tracking-ritual text-muted-foreground">
-        <LogOut className="inline size-3 mr-1" /> Accueil
-      </Link>
+      <button
+        onClick={() => {
+          lock();
+          navigate({ to: "/" });
+        }}
+        className="block w-full text-center mt-8 text-xs tracking-ritual text-muted-foreground"
+      >
+        <LogOut className="inline size-3 mr-1" /> Se déconnecter
+      </button>
 
       <BottomNav />
     </main>
   );
 }
 
-function Counter({ emoji, n, label }: { emoji: string; n: number; label: string }) {
-  return (
-    <div className="rounded-2xl bg-paper border-2 border-ink p-3 text-center">
-      <div className="text-2xl">{emoji}</div>
-      <div className="serif text-2xl text-emerald mt-1">{n}</div>
-      <div className="tracking-ritual text-muted-foreground">{label}</div>
-    </div>
-  );
-}
-
 function Composer({
   tag,
   member,
-  pactRules,
   onSaved,
 }: {
   tag: { id: Tag; emoji: string; label: string; sub: string };
   member: Member;
-  pactRules: string[];
   onSaved: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
-  const [translated, setTranslated] = useState<string | null>(null);
-  const [translating, setTranslating] = useState(false);
   const [share, setShare] = useState(true);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const reset = () => { setText(""); setTranslated(null); setShare(true); setErr(null); setOpen(false); };
-
-  const translate = async () => {
-    if (!text.trim()) return;
-    setTranslating(true);
+  const reset = () => {
+    setText("");
+    setShare(true);
     setErr(null);
-    try {
-      const { data, error } = await supabase.functions.invoke("translate-emotion", {
-        body: { raw: text, pactRules },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      setTranslated(data.reformulated);
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "Échec de la traduction.");
-    } finally {
-      setTranslating(false);
-    }
+    setOpen(false);
   };
 
   const save = async () => {
@@ -191,7 +198,7 @@ function Composer({
         author_id: member.user_id,
         tag: tag.id,
         raw: text.trim(),
-        reformulated: translated,
+        reformulated: null,
         will_share: share,
       });
       if (error) throw error;
@@ -233,41 +240,25 @@ function Composer({
       <div className="flex items-center gap-3 mb-3">
         <div className="text-2xl">{tag.emoji}</div>
         <div className="font-semibold text-ink flex-1">{tag.label}</div>
-        <button onClick={reset} className="text-muted-foreground text-xl leading-none">×</button>
+        <button onClick={reset} className="text-muted-foreground text-xl leading-none">
+          ×
+        </button>
       </div>
 
       <textarea
         autoFocus
         value={text}
-        onChange={(e) => { setText(e.target.value); setTranslated(null); }}
+        onChange={(e) => setText(e.target.value)}
         placeholder={
           tag.id === "emotion"
-            ? "Dis-le brut. On le reformulera ensemble."
+            ? "Dis-le comme tu le ressens. Brut."
             : tag.id === "pacte"
-              ? "Une règle qu'on a tenue ou franchie."
+              ? "Une nouvelle règle à proposer pour votre pacte…"
               : "Un moment qui t'a fait du bien."
         }
         rows={3}
         className="w-full bg-transparent p-2 text-[15px] text-ink placeholder:text-muted-foreground/60 outline-none resize-none border-b-2 border-ink/10"
       />
-
-      {tag.id === "emotion" && (
-        <div className="mt-3">
-          <button
-            onClick={translate}
-            disabled={translating || !text.trim()}
-            className="text-xs tracking-ritual text-emerald inline-flex items-center gap-1 disabled:opacity-30"
-          >
-            <Sparkles className="size-3" />
-            {translating ? "Traduction…" : "Version CNV"}
-          </button>
-          {translated && (
-            <div className="mt-3 rounded-xl border-2 border-emerald bg-emerald/5 p-3 text-[15px] text-ink italic">
-              {translated}
-            </div>
-          )}
-        </div>
-      )}
 
       <label className="flex items-center gap-2 mt-4 text-sm text-ink cursor-pointer">
         <input
@@ -310,11 +301,23 @@ function EntryCard({ entry, onChange }: { entry: Entry; onChange: () => void }) 
             </div>
           )}
           <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
-            <span>{new Date(entry.created_at).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" })}</span>
+            <span>
+              {new Date(entry.created_at).toLocaleDateString("fr-FR", {
+                weekday: "short",
+                day: "numeric",
+                month: "short",
+              })}
+            </span>
             {entry.will_share && <span className="tracking-ritual text-emerald">• vendredi</span>}
           </div>
         </div>
-        <button onClick={remove} className="text-muted-foreground text-lg leading-none" aria-label="Supprimer">×</button>
+        <button
+          onClick={remove}
+          className="text-muted-foreground text-lg leading-none"
+          aria-label="Supprimer"
+        >
+          ×
+        </button>
       </div>
     </li>
   );

@@ -25,13 +25,22 @@ function Vendredi() {
   const [partnerAnswer, setPartnerAnswer] = useState<FridayAnswer | null>(null);
   const [qInput, setQInput] = useState("");
   const [gInput, setGInput] = useState("");
+  const [emotionRaw, setEmotionRaw] = useState("");
+  const [emotionCnv, setEmotionCnv] = useState<string | null>(null);
+  const [translating, setTranslating] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
     if (loading) return;
-    if (!member) { navigate({ to: "/" }); return; }
-    if (!isUnlocked(member.id)) { navigate({ to: "/login" }); return; }
+    if (!member) {
+      navigate({ to: "/" });
+      return;
+    }
+    if (!isUnlocked(member.id)) {
+      navigate({ to: "/login" });
+      return;
+    }
   }, [loading, member, navigate]);
 
   const weekKey = currentWeekKey();
@@ -66,13 +75,11 @@ function Vendredi() {
         .eq("ritual_id", rid)
         .eq("author_id", member.user_id)
         .maybeSingle();
-      const { data: all } = await supabase
-        .from("friday_answers")
-        .select("*")
-        .eq("ritual_id", rid);
+      const { data: all } = await supabase.from("friday_answers").select("*").eq("ritual_id", rid);
       if (cancelled) return;
       setMyAnswer((mine as FridayAnswer) ?? null);
-      const partnerA = (all as FridayAnswer[] | null)?.find((a) => a.author_id !== member.user_id) ?? null;
+      const partnerA =
+        (all as FridayAnswer[] | null)?.find((a) => a.author_id !== member.user_id) ?? null;
       setPartnerAnswer(partnerA);
     };
 
@@ -91,7 +98,11 @@ function Vendredi() {
   }, [couple, member, weekKey, question]);
 
   if (loading || !member || !couple) {
-    return <main className="min-h-screen grid place-items-center"><div className="text-muted-foreground">…</div></main>;
+    return (
+      <main className="min-h-screen grid place-items-center">
+        <div className="text-muted-foreground">…</div>
+      </main>
+    );
   }
 
   if (!partner) {
@@ -122,7 +133,9 @@ function Vendredi() {
           author_id: member.user_id,
           question_answer: qInput.trim(),
           gratitude: gInput.trim(),
-        })
+          emotion_raw: emotionRaw.trim() ? emotionRaw.trim() : null,
+          emotion_cnv: emotionRaw.trim() ? emotionCnv : null,
+        } as never)
         .select("*")
         .single();
       if (error) throw error;
@@ -134,6 +147,24 @@ function Vendredi() {
     }
   };
 
+  const reformulateEmotion = async () => {
+    if (!emotionRaw.trim() || translating) return;
+    setTranslating(true);
+    setErr(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("translate-emotion", {
+        body: { raw: emotionRaw.trim() },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setEmotionCnv(data.reformulated ?? null);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Échec de la reformulation.");
+    } finally {
+      setTranslating(false);
+    }
+  };
+
   // STATE 1: not yet submitted → show form
   if (!myAnswer) {
     return (
@@ -142,7 +173,8 @@ function Vendredi() {
           <div className="tracking-ritual text-muted-foreground">Vendredi · {weekKey}</div>
           <h1 className="serif text-3xl text-ink mt-1">Le rituel.</h1>
           <p className="text-xs text-muted-foreground mt-2">
-            Vous répondez chacun·e séparément. Personne ne voit l'autre tant que vous n'avez pas tous les deux répondu.
+            Vous répondez chacun·e séparément. Personne ne voit l'autre tant que vous n'avez pas
+            tous les deux répondu.
           </p>
         </header>
 
@@ -168,6 +200,38 @@ function Vendredi() {
             placeholder="Une chose, petite ou grande."
             className="mt-3 w-full rounded-xl border-2 border-ink bg-paper p-3 text-[15px] text-ink outline-none focus:shadow-flat resize-none"
           />
+        </div>
+
+        <div className="rounded-3xl border-2 border-ink bg-card p-5 shadow-flat mt-4">
+          <div className="tracking-ritual text-muted-foreground mb-2">
+            💬 Une émotion de la semaine à reformuler ?
+          </div>
+          <p className="text-xs text-muted-foreground">
+            La Communication Non Violente (CNV) aide à exprimer un ressenti sans reproche.
+            C&apos;est optionnel.
+          </p>
+          <textarea
+            value={emotionRaw}
+            onChange={(e) => {
+              setEmotionRaw(e.target.value);
+              setEmotionCnv(null);
+            }}
+            rows={3}
+            placeholder="Qu'est-ce qui t'a pesé cette semaine ?"
+            className="mt-3 w-full rounded-xl border-2 border-ink bg-paper p-3 text-[15px] text-ink outline-none focus:shadow-flat resize-none"
+          />
+          <button
+            onClick={reformulateEmotion}
+            disabled={!emotionRaw.trim() || translating}
+            className="mt-3 text-xs tracking-ritual text-emerald disabled:opacity-30"
+          >
+            {translating ? "Reformulation…" : "Reformuler en CNV ✨"}
+          </button>
+          {emotionCnv && (
+            <div className="mt-3 rounded-xl border-2 border-emerald bg-emerald/5 p-3 text-[15px] text-emerald italic">
+              {emotionCnv}
+            </div>
+          )}
         </div>
 
         {err && <p className="mt-4 text-sm text-destructive">{err}</p>}
@@ -196,7 +260,8 @@ function Vendredi() {
           </div>
           <h1 className="serif text-3xl text-ink mt-8">En attente de {partner.display_name}…</h1>
           <p className="text-sm text-muted-foreground mt-3 max-w-xs mx-auto">
-            Ta réponse est scellée. Dès que {partner.display_name} a répondu, vous verrez tout en même temps.
+            Ta réponse est scellée. Dès que {partner.display_name} a répondu, vous verrez tout en
+            même temps.
           </p>
         </div>
         <BottomNav />
@@ -205,15 +270,17 @@ function Vendredi() {
   }
 
   // STATE 3: both answered → reveal
-  return <Reveal
-    weekKey={weekKey}
-    question={question}
-    me={member.display_name}
-    partnerName={partner.display_name}
-    myAnswer={myAnswer}
-    partnerAnswer={partnerAnswer}
-    coupleId={couple.id}
-  />;
+  return (
+    <Reveal
+      weekKey={weekKey}
+      question={question}
+      me={member.display_name}
+      partnerName={partner.display_name}
+      myAnswer={myAnswer}
+      partnerAnswer={partnerAnswer}
+      coupleId={couple.id}
+    />
+  );
 }
 
 function Reveal({
@@ -295,7 +362,10 @@ function Reveal({
         <div className="text-center mt-8">
           <div className="text-4xl">🌳</div>
           <p className="serif text-xl text-ink mt-3">Une nouvelle branche.</p>
-          <Link to="/nous" className="inline-block mt-4 text-xs tracking-ritual text-emerald underline">
+          <Link
+            to="/nous"
+            className="inline-block mt-4 text-xs tracking-ritual text-emerald underline"
+          >
             Voir l'arbre →
           </Link>
         </div>
@@ -306,7 +376,15 @@ function Reveal({
   );
 }
 
-function Block({ title, emoji, children }: { title: string; emoji: string; children: React.ReactNode }) {
+function Block({
+  title,
+  emoji,
+  children,
+}: {
+  title: string;
+  emoji: string;
+  children: React.ReactNode;
+}) {
   return (
     <section className="rounded-3xl border-2 border-ink bg-card p-5 shadow-flat mt-4">
       <div className="flex items-center gap-2 mb-3">
@@ -320,8 +398,12 @@ function Block({ title, emoji, children }: { title: string; emoji: string; child
 
 function Side({ label, text, mine }: { label: string; text: string; mine?: boolean }) {
   return (
-    <div className={`mt-2 rounded-xl border-2 ${mine ? "border-emerald bg-emerald/5" : "border-ink bg-paper"} p-3`}>
-      <div className={`tracking-ritual mb-1 ${mine ? "text-emerald" : "text-muted-foreground"}`}>{label}</div>
+    <div
+      className={`mt-2 rounded-xl border-2 ${mine ? "border-emerald bg-emerald/5" : "border-ink bg-paper"} p-3`}
+    >
+      <div className={`tracking-ritual mb-1 ${mine ? "text-emerald" : "text-muted-foreground"}`}>
+        {label}
+      </div>
       <div className="text-[15px] text-ink whitespace-pre-wrap">{text}</div>
     </div>
   );

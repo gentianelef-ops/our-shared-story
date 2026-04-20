@@ -8,10 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/tempete")({
   head: () => ({
-    meta: [
-      { title: "Calme — Nous" },
-      { name: "description", content: "Un moment pour respirer." },
-    ],
+    meta: [{ title: "Calme — Nous" }, { name: "description", content: "Un moment pour respirer." }],
   }),
   component: Tempete,
 });
@@ -29,8 +26,14 @@ function Tempete() {
 
   useEffect(() => {
     if (loading) return;
-    if (!member) { navigate({ to: "/" }); return; }
-    if (!isUnlocked(member.id)) { navigate({ to: "/login" }); return; }
+    if (!member) {
+      navigate({ to: "/" });
+      return;
+    }
+    if (!isUnlocked(member.id)) {
+      navigate({ to: "/login" });
+      return;
+    }
   }, [loading, member, navigate]);
 
   // Auto-start storm if none active and current user opens this page
@@ -48,7 +51,11 @@ function Tempete() {
   }, [loading, member, couple, partner, storm, starting, refresh]);
 
   if (loading || !member || !couple) {
-    return <main className="min-h-screen grid place-items-center"><div className="text-muted-foreground">…</div></main>;
+    return (
+      <main className="min-h-screen grid place-items-center">
+        <div className="text-muted-foreground">…</div>
+      </main>
+    );
   }
 
   const isInitiator = storm?.started_by === member.user_id;
@@ -66,6 +73,7 @@ function Tempete() {
     }
     await refresh();
     navigate({ to: "/journal" });
+    window.location.reload();
   };
 
   return (
@@ -82,6 +90,10 @@ function Tempete() {
         <div className="flex-1 flex items-center justify-center">
           <Breath />
         </div>
+
+        {!isInitiator && (
+          <p className="mt-8 text-center text-sm text-muted-foreground">Donne-lui le temps</p>
+        )}
 
         <div className="mt-8 space-y-3">
           {isInitiator && (
@@ -124,13 +136,18 @@ function Breath() {
   }, [phase]);
 
   const scale = phase === "in" ? "scale-100" : phase === "hold" ? "scale-100" : "scale-50";
-  const duration = phase === "in" ? "duration-[4000ms]" : phase === "out" ? "duration-[8000ms]" : "duration-700";
+  const duration =
+    phase === "in" ? "duration-[4000ms]" : phase === "out" ? "duration-[8000ms]" : "duration-700";
 
   return (
     <div className="flex flex-col items-center gap-8">
       <div className="relative size-64 grid place-items-center">
-        <div className={`absolute inset-0 rounded-full bg-storm/20 transition-transform ease-in-out ${duration} ${phase === "in" ? "scale-100" : phase === "hold" ? "scale-100" : "scale-50"}`} />
-        <div className={`absolute inset-4 rounded-full border-2 border-storm/60 transition-transform ease-in-out ${duration} ${scale}`} />
+        <div
+          className={`absolute inset-0 rounded-full bg-storm/20 transition-transform ease-in-out ${duration} ${phase === "in" ? "scale-100" : phase === "hold" ? "scale-100" : "scale-50"}`}
+        />
+        <div
+          className={`absolute inset-4 rounded-full border-2 border-storm/60 transition-transform ease-in-out ${duration} ${scale}`}
+        />
         <div className="relative text-center">
           <div className="serif text-2xl text-ink italic">{PHASE_LABEL[phase]}</div>
           <div className="serif text-5xl text-storm mt-2">{seconds}</div>

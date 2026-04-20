@@ -8,7 +8,8 @@ export const Route = createFileRoute("/")({
       { title: "Nous — le jeu dont votre couple a besoin" },
       {
         name: "description",
-        content: "Parce que lire dans les pensées, c'est épuisant. Chacun joue sa partie. Vendredi, vous comparez les scores.",
+        content:
+          "Parce que lire dans les pensées, c'est épuisant. Chacun joue sa partie. Vendredi, vous comparez les scores.",
       },
     ],
   }),
@@ -31,16 +32,17 @@ function Home() {
       </div>
 
       <h1 className="serif text-5xl text-ink leading-[0.95]">
-        Parce que lire dans les pensées,
-        <span className="italic text-emerald"> c'est épuisant.</span>
+        Ton couple mérite mieux
+        <span className="italic text-emerald"> qu'un silence awkward.</span>
       </h1>
       <p className="mt-6 text-ink/70 text-[16px] leading-relaxed">
-        Chacun joue sa partie de la semaine. Vendredi soir, on se révèle ce qu'on a vraiment vécu.
+        Chaque jour tu déposes ce qui s'est passé. Vendredi soir, vous ouvrez tout en même temps.
+        Spoiler : ça surprend toujours.
       </p>
 
       <div className="mt-10 space-y-3">
         <Pill emoji="💚" label="+1" sub="un moment qui fait du bien" />
-        <Pill emoji="📜" label="Pacte" sub="une règle franchie ou tenue" />
+        <Pill emoji="💡" label="Idées" sub="proposer une nouvelle règle ensemble" />
         <Pill emoji="🌊" label="Émotion" sub="dit en CNV, pas en reproche" />
       </div>
 
@@ -60,7 +62,7 @@ function Home() {
       </div>
 
       <p className="mt-10 text-center text-xs text-muted-foreground italic">
-        « On s'aime mieux quand on s'écoute autrement. »
+        « L'amour c'est bien. L'amour qui se comprend, c'est mieux. »
       </p>
     </main>
   );
