@@ -85,12 +85,15 @@ function Tempete() {
 
         <div className="mt-8 space-y-3">
           {isInitiator && (
-            <button
+           <button
   type="button"
-  onClick={(e) => { e.preventDefault(); void onEnd(); }}
-              Le calme est revenu
-            </button>
-          )}
+  onClick={(e) => {
+    e.preventDefault()
+    onEnd()
+  }}
+>
+  Le calme est revenu
+</button>
           <button
             onClick={() => navigate({ to: "/journal" })}
             className="w-full text-center text-xs tracking-ritual text-muted-foreground py-2"
