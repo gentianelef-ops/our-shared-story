@@ -7,12 +7,12 @@ import { BottomNav } from "@/components/bottom-nav";
 import { StormButton } from "@/components/storm-button";
 import { NotificationBell } from "@/components/notification-bell";
 import type { Entry, PactRule, Tag, Member } from "@/lib/types";
-import { Sparkles, Lock, LogOut } from "lucide-react";
+import { Sparkles, Lock } from "lucide-react";
 
 export const Route = createFileRoute("/journal")({
   head: () => ({
     meta: [
-      { title: "Ma manche — Nous" },
+      { title: "JE — Nous" },
       { name: "description", content: "Dépose ce qui compte. Vendredi, on partage." },
     ],
   }),
@@ -21,7 +21,7 @@ export const Route = createFileRoute("/journal")({
 
 const TAGS: { id: Tag; emoji: string; label: string; sub: string }[] = [
   { id: "positif", emoji: "💚", label: "+1", sub: "Un moment qui fait du bien" },
-  { id: "pacte", emoji: "📜", label: "Pacte", sub: "Une règle franchie ou tenue" },
+  { id: "pacte", emoji: "💡", label: "Idée pacte", sub: "Propose une nouvelle règle pour vendredi" },
   { id: "emotion", emoji: "🌊", label: "Émotion", sub: "À traduire en CNV" },
 ];
 
@@ -97,7 +97,7 @@ function Journal() {
       </header>
 
       <div className="rounded-3xl border-2 border-ink bg-card p-5 shadow-flat">
-        <div className="tracking-ritual text-muted-foreground mb-3">Ta manche cette semaine</div>
+        <div className="tracking-ritual text-muted-foreground mb-3">Mon espace cette semaine</div>
         <div className="grid grid-cols-3 gap-3">
           <Counter emoji="💚" n={counts.positif} label="+1" />
           <Counter emoji="📜" n={counts.pacte} label="Pacte" />
@@ -123,9 +123,12 @@ function Journal() {
         </ul>
       )}
 
-      <Link to="/" className="block text-center mt-8 text-xs tracking-ritual text-muted-foreground">
-        <LogOut className="inline size-3 mr-1" /> Accueil
-      </Link>
+      <button
+        onClick={() => { lock(); navigate({ to: "/" }); }}
+        className="block w-full text-center mt-8 text-xs tracking-ritual text-muted-foreground"
+      >
+        Accueil
+      </button>
 
       <BottomNav />
     </main>
@@ -244,7 +247,7 @@ function Composer({
           tag.id === "emotion"
             ? "Dis-le brut. On le reformulera ensemble."
             : tag.id === "pacte"
-              ? "Une règle qu'on a tenue ou franchie."
+              ? "Une nouvelle règle à proposer pour votre pacte…"
               : "Un moment qui t'a fait du bien."
         }
         rows={3}

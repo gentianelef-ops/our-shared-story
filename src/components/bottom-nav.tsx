@@ -4,7 +4,7 @@ import { Heart, Trees, Sparkles } from "lucide-react";
 export function BottomNav() {
   const { pathname } = useLocation();
   const items = [
-    { to: "/journal", icon: Heart, label: "Ma manche" },
+    { to: "/journal", icon: Heart, label: "JE" },
     { to: "/nous", icon: Trees, label: "Nous" },
     { to: "/vendredi", icon: Sparkles, label: "Vendredi" },
   ] as const;

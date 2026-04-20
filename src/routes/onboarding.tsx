@@ -72,7 +72,7 @@ function Onboarding() {
             onClick={() => navigate({ to: "/journal" })}
             className="btn-flat block w-full rounded-full bg-emerald text-accent-foreground py-4 mt-12 tracking-ritual"
           >
-            Entrer dans ma manche →
+            Commencer →
           </button>
         </div>
       </main>
@@ -113,7 +113,7 @@ function Onboarding() {
         className="w-full rounded-2xl border-2 border-ink bg-card p-4 text-[22px] text-ink tracking-[0.6em] text-center outline-none focus:shadow-flat transition"
       />
       <p className="text-xs text-muted-foreground mt-2">
-        Pour que toi seul·e ouvres ta manche sur cet appareil.
+        Pour que toi seul·e accèdes à ton espace sur cet appareil.
       </p>
 
       {error && (
