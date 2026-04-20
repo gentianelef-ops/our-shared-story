@@ -115,9 +115,7 @@ function Journal() {
       </header>
 
       <div className="rounded-3xl border-2 border-ink bg-card p-5 shadow-flat">
-        <div className="tracking-ritual text-muted-foreground mb-3">
-          Ta semaine en un coup d'œil
-        </div>
+        <div className="tracking-ritual text-muted-foreground mb-3">Mon espace cette semaine</div>
         <div className="flex items-center gap-3">
           <span className="text-xl">😔</span>
           <div className="relative flex-1 h-2 rounded-full bg-ink/10 overflow-hidden">
