@@ -33,7 +33,6 @@ function Tempete() {
     if (!isUnlocked(member.id)) { navigate({ to: "/login" }); return; }
   }, [loading, member, navigate]);
 
-  // Auto-start storm if none active and current user opens this page
   useEffect(() => {
     if (loading || !member || !couple || storm || starting) return;
     void (async () => {
@@ -54,17 +53,19 @@ function Tempete() {
   const isInitiator = storm?.started_by === member.user_id;
 
   const onEnd = async () => {
-    if (!storm) return;
-    await endStorm(storm.id);
-    if (partner) {
-      await supabase.from("notifications").insert({
-        couple_id: couple.id,
-        recipient_id: partner.user_id,
-        kind: "storm_ended",
-        payload: { name: member.display_name },
-      });
-    }
-    await refresh();
+    if (!storm || !couple || !member) return;
+    try { await endStorm(storm.id); } catch (e) { console.error(e); }
+    try {
+      if (partner) {
+        await supabase.from("notifications").insert({
+          couple_id: couple.id,
+          recipient_id: partner.user_id,
+          kind: "storm_ended",
+          payload: { name: member.display_name },
+        });
+      }
+    } catch (e) { console.error(e); }
+    try { await refresh(); } catch (e) { console.error(e); }
     navigate({ to: "/journal" });
   };
 
@@ -85,16 +86,16 @@ function Tempete() {
 
         <div className="mt-8 space-y-3">
           {isInitiator && (
-           <button
-  type="button"
-  onClick={(e) => {
-    e.preventDefault()
-    onEnd()
-  }}
->
-  Le calme est revenu
-</button>
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); void onEnd(); }}
+              className="btn-flat w-full rounded-full bg-emerald text-accent-foreground py-4 tracking-ritual"
+            >
+              Le calme est revenu
+            </button>
+          )}
           <button
+            type="button"
             onClick={() => navigate({ to: "/journal" })}
             className="w-full text-center text-xs tracking-ritual text-muted-foreground py-2"
           >
