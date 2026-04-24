@@ -52,6 +52,9 @@ export async function startStorm(coupleId: string, userId: string, partnerUserId
   return data as Storm;
 }
 
-export async function endStorm(stormId: string): Promise<void> {
-  await supabase.from("storms").update({ ended_at: new Date().toISOString() }).eq("id", stormId);
+export async function endStorm(stormId: string) {
+  await supabase
+    .from("storms")
+    .update({ ended_at: new Date().toISOString() })
+    .eq("id", stormId);
 }
