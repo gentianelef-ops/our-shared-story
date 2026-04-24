@@ -1,5 +1,19 @@
 import { supabase } from "@/integrations/supabase/client";
 
+async function ensureAuth() {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (session) return;
+  const { error } = await supabase.auth.signInAnonymously();
+  if (error) {
+    const email = `anon_${Math.random().toString(36).slice(2)}@nous-app.local`;
+    const password = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+    await supabase.auth.signUp({ email, password });
+    await supabase.auth.signInWithPassword({ email, password });
+  }
+}
+
 export interface Storm {
   id: string;
   couple_id: string;
@@ -30,10 +44,17 @@ export async function getActiveStorm(coupleId: string): Promise<Storm | null> {
   return (data as Storm) ?? null;
 }
 
-export async function startStorm(coupleId: string, userId: string, partnerUserId: string | null, initiatorName: string): Promise<Storm | null> {
+export async function startStorm(
+  coupleId: string,
+  userId: string,
+  partnerUserId: string | null,
+  initiatorName: string,
+): Promise<Storm | null> {
+  await ensureAuth();
   const existing = await getActiveStorm(coupleId);
   if (existing) return existing;
 
+  await ensureAuth();
   const { data, error } = await supabase
     .from("storms")
     .insert({ couple_id: coupleId, started_by: userId })
@@ -42,6 +63,7 @@ export async function startStorm(coupleId: string, userId: string, partnerUserId
   if (error) throw error;
 
   if (partnerUserId) {
+    await ensureAuth();
     await supabase.from("notifications").insert({
       couple_id: coupleId,
       recipient_id: partnerUserId,
@@ -52,9 +74,7 @@ export async function startStorm(coupleId: string, userId: string, partnerUserId
   return data as Storm;
 }
 
-export async function endStorm(stormId: string) {
-  await supabase
-    .from("storms")
-    .update({ ended_at: new Date().toISOString() })
-    .eq("id", stormId);
+export async function endStorm(stormId: string): Promise<void> {
+  await ensureAuth();
+  await supabase.from("storms").update({ ended_at: new Date().toISOString() }).eq("id", stormId);
 }
