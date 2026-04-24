@@ -3,19 +3,71 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Couple, Member } from "@/lib/types";
 
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no I, O, 0, 1
+const LOCAL_AUTH_EMAIL_KEY = "supabase_auth_email";
+const LOCAL_AUTH_PASSWORD_KEY = "supabase_auth_password";
+
 function genCode(len = 6): string {
   let out = "";
   for (let i = 0; i < len; i++) out += ALPHABET[Math.floor(Math.random() * ALPHABET.length)];
   return out;
 }
 
+function randomToken(len = 24): string {
+  let out = "";
+  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  for (let i = 0; i < len; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+}
+
+function readStoredCredentials(): { email: string; password: string } | null {
+  if (typeof window === "undefined") return null;
+  const email = window.localStorage.getItem(LOCAL_AUTH_EMAIL_KEY);
+  const password = window.localStorage.getItem(LOCAL_AUTH_PASSWORD_KEY);
+  if (!email || !password) return null;
+  return { email, password };
+}
+
+function storeCredentials(email: string, password: string): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(LOCAL_AUTH_EMAIL_KEY, email);
+  window.localStorage.setItem(LOCAL_AUTH_PASSWORD_KEY, password);
+}
+
 /** Ensure we have an authenticated (anonymous) session. */
 export async function ensureAuth(): Promise<string> {
   const { data } = await supabase.auth.getSession();
   if (data.session?.user.id) return data.session.user.id;
-  const { data: signed, error } = await supabase.auth.signInAnonymously();
-  if (error) throw error;
-  return signed.user!.id;
+
+  const anonymousSignin = supabase.auth.signInAnonymously?.bind(supabase.auth);
+  if (anonymousSignin) {
+    const { data: signed, error } = await anonymousSignin();
+    if (!error && signed.session?.user.id) return signed.session.user.id;
+  }
+
+  const stored = readStoredCredentials();
+  const fallbackEmail = stored?.email ?? `${randomToken(12).toLowerCase()}@anon.local`;
+  const fallbackPassword = stored?.password ?? randomToken(32);
+  const { data: signedUp, error: signUpError } = await supabase.auth.signUp({
+    email: fallbackEmail,
+    password: fallbackPassword,
+  });
+  if (signUpError) throw signUpError;
+  storeCredentials(fallbackEmail, fallbackPassword);
+  if (signedUp.session?.user.id) return signedUp.session.user.id;
+
+  const { data: signedIn, error: signInError } = await supabase.auth.signInWithPassword({
+    email: fallbackEmail,
+    password: fallbackPassword,
+  });
+  if (signInError) throw signInError;
+  if (!signedIn.session?.user.id)
+    throw new Error("Session Supabase introuvable après authentification.");
+  return signedIn.session.user.id;
+}
+
+async function assertValidSession(): Promise<void> {
+  const { data } = await supabase.auth.getSession();
+  if (!data.session?.user.id) throw new Error("Session Supabase invalide.");
 }
 
 /** Get current member row for the logged-in user, or null. */
@@ -38,10 +90,14 @@ export async function getCoupleMembers(coupleId: string): Promise<Member[]> {
 }
 
 /** Create a new couple (slot 'a') with a fresh code. Retries on collision. */
-export async function createCouple(displayName: string, pin: string): Promise<{ couple: Couple; member: Member }> {
+export async function createCouple(
+  displayName: string,
+  pin: string,
+): Promise<{ couple: Couple; member: Member }> {
   await ensureAuth();
   let lastError: unknown = null;
   for (let i = 0; i < 5; i++) {
+    await assertValidSession();
     const code = genCode();
     const { data, error } = await supabase.rpc("create_couple", {
       _code: code,
@@ -58,18 +114,33 @@ export async function createCouple(displayName: string, pin: string): Promise<{ 
     }
     const row = Array.isArray(data) ? data[0] : data;
     if (!row) throw new Error("Réponse vide du serveur");
-    const { data: couple } = await supabase.from("couples").select("*").eq("id", row.couple_id).single();
-    const { data: member } = await supabase.from("members").select("*").eq("id", row.member_id).single();
+    await assertValidSession();
+    const { data: couple } = await supabase
+      .from("couples")
+      .select("*")
+      .eq("id", row.couple_id)
+      .single();
+    await assertValidSession();
+    const { data: member } = await supabase
+      .from("members")
+      .select("*")
+      .eq("id", row.member_id)
+      .single();
     return { couple: couple as Couple, member: member as Member };
   }
   throw lastError ?? new Error("Impossible de créer un code unique");
 }
 
 /** Join an existing couple by code, claiming slot 'b'. */
-export async function joinCouple(code: string, displayName: string, pin: string): Promise<{ couple: Couple; member: Member }> {
+export async function joinCouple(
+  code: string,
+  displayName: string,
+  pin: string,
+): Promise<{ couple: Couple; member: Member }> {
   await ensureAuth();
   const cleanCode = code.trim().toUpperCase();
 
+  await assertValidSession();
   const { data, error } = await supabase.rpc("join_couple", {
     _code: cleanCode,
     _display_name: displayName.trim(),
@@ -82,8 +153,18 @@ export async function joinCouple(code: string, displayName: string, pin: string)
   }
   const row = Array.isArray(data) ? data[0] : data;
   if (!row) throw new Error("Réponse vide du serveur");
-  const { data: couple } = await supabase.from("couples").select("*").eq("id", row.couple_id).single();
-  const { data: member } = await supabase.from("members").select("*").eq("id", row.member_id).single();
+  await assertValidSession();
+  const { data: couple } = await supabase
+    .from("couples")
+    .select("*")
+    .eq("id", row.couple_id)
+    .single();
+  await assertValidSession();
+  const { data: member } = await supabase
+    .from("members")
+    .select("*")
+    .eq("id", row.member_id)
+    .single();
   return { couple: couple as Couple, member: member as Member };
 }
 
