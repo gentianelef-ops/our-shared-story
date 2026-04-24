@@ -123,16 +123,19 @@ function Journal() {
         </ul>
       )}
 
-      <button
-        onClick={() => { lock(); navigate({ to: "/" }); }}
-        className="block w-full text-center mt-8 text-xs tracking-ritual text-muted-foreground"
-      >
-        Accueil
-      </button>
-
-      <BottomNav />
-    </main>
-  );
+     <button
+  onClick={async () => {
+    lock();
+    await supabase.auth.signOut();
+    navigate({ to: "/" });
+  }}
+  className="block w-full text-center mt-8 text-xs tracking-ritual text-muted-foreground"
+>
+  <LogOut className="inline size-3 mr-1" /> Se déconnecter
+</button>
+<BottomNav />
+</main>
+);
 }
 
 function Counter({ emoji, n, label }: { emoji: string; n: number; label: string }) {
