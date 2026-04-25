@@ -75,6 +75,9 @@ export async function startStorm(
 }
 
 export async function endStorm(stormId: string): Promise<void> {
-  await ensureAuth();
-  await supabase.from("storms").update({ ended_at: new Date().toISOString() }).eq("id", stormId);
+  const { error } = await supabase
+    .from("storms")
+    .update({ ended_at: new Date().toISOString() })
+    .eq("id", stormId);
+  if (error) console.error("endStorm error:", error);
 }

@@ -87,11 +87,11 @@ function Journal() {
     );
   }
 
-  const counts = {
-    positif: entries.filter((e) => e.tag === "positif").length,
-    pacte: entries.filter((e) => e.tag === "pacte").length,
-    emotion: entries.filter((e) => e.tag === "emotion").length,
-  };
+  const positifCount = entries.filter((e) => e.tag === "positif").length;
+  const emotionCount = entries.filter((e) => e.tag === "emotion").length;
+  const total = entries.length;
+  const score =
+    total === 0 ? 0.5 : Math.min(1, Math.max(0, (positifCount - emotionCount) / total + 0.5));
 
   return (
     <main className="min-h-screen mx-auto max-w-lg px-6 pt-8 pb-28">
@@ -126,10 +126,19 @@ function Journal() {
 
       <div className="rounded-3xl border-2 border-ink bg-card p-5 shadow-flat">
         <div className="tracking-ritual text-muted-foreground mb-3">Mon espace cette semaine</div>
-        <div className="grid grid-cols-3 gap-3">
-          <Counter emoji="💚" n={counts.positif} label="+1" />
-          <Counter emoji="📜" n={counts.pacte} label="Pacte" />
-          <Counter emoji="🌊" n={counts.emotion} label="Émo" />
+        <div className="flex items-center justify-between gap-3 px-2">
+          <span className="text-2xl">😔</span>
+          <div className="flex-1 relative h-3 rounded-full bg-ink/10">
+            <div
+              className="absolute top-0 left-0 h-3 rounded-full bg-emerald transition-all"
+              style={{ width: `${score * 100}%` }}
+            />
+            <div
+              className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 size-5 rounded-full bg-emerald border-2 border-ink shadow transition-all"
+              style={{ left: `${score * 100}%` }}
+            />
+          </div>
+          <span className="text-2xl">😊</span>
         </div>
       </div>
 
@@ -171,16 +180,6 @@ function Journal() {
 
       <BottomNav />
     </main>
-  );
-}
-
-function Counter({ emoji, n, label }: { emoji: string; n: number; label: string }) {
-  return (
-    <div className="rounded-2xl bg-paper border-2 border-ink p-3 text-center">
-      <div className="text-2xl">{emoji}</div>
-      <div className="serif text-2xl text-emerald mt-1">{n}</div>
-      <div className="tracking-ritual text-muted-foreground">{label}</div>
-    </div>
   );
 }
 
