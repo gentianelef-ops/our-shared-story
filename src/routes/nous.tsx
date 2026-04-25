@@ -9,6 +9,42 @@ import { StormButton } from "@/components/storm-button";
 import { NotificationBell } from "@/components/notification-bell";
 import type { PactRule, MemoryMoment } from "@/lib/types";
 
+type FeelGoodTag = "🌿 calme" | "⚡ aventure" | "🔥 complicité" | "💆 douceur";
+type FeelGoodItem = { id: string; text: string; tag: FeelGoodTag; pinned: boolean };
+const FEEL_GOOD_STORAGE_KEY = "feel_good_items";
+const WEEKLY_CHALLENGES = [
+  "Cuisinez un plat que vous n'avez jamais fait ensemble",
+  "Éteignez vos téléphones 2h et faites quelque chose ensemble",
+  "Écrivez chacun 3 choses que vous aimez chez l'autre et lisez-les à voix haute",
+  "Faites une balade dans un endroit que vous n'avez jamais exploré",
+  "Regardez un film que ni l'un ni l'autre n'a vu",
+  "Faites un pique-nique improvisé",
+  "Apprenez quelque chose ensemble en 30 minutes",
+  "Faites une soirée sans écrans",
+  "Cuisinez le plat préféré de l'autre",
+  "Écrivez une lettre à votre couple dans 1 an",
+  "Faites une activité que l'autre adore mais pas vous",
+  "Prenez des photos de votre journée et partagez-les le soir",
+  "Faites un massage de 10 minutes chacun",
+  "Planifiez votre prochaine aventure ensemble",
+  "Dansez dans votre salon",
+  "Faites un jeu de société ensemble",
+  "Visitez un endroit de votre ville que vous ne connaissez pas",
+  "Préparez le petit-déjeuner au lit",
+  "Regardez les étoiles ensemble",
+  "Faites une randonée ou balade en forêt",
+] as const;
+const DEFAULT_FEEL_GOOD_ITEMS: Array<{ text: string; tag: FeelGoodTag }> = [
+  { text: "Balade en forêt 🌲", tag: "🌿 calme" },
+  { text: "Cuisine ensemble 🍳", tag: "🔥 complicité" },
+  { text: "Soirée film 🎬", tag: "💆 douceur" },
+  { text: "Massage 💆", tag: "💆 douceur" },
+  { text: "Jeu de société 🎲", tag: "🔥 complicité" },
+  { text: "Pique-nique 🧺", tag: "🌿 calme" },
+  { text: "Randonnée 🥾", tag: "⚡ aventure" },
+  { text: "Marché du dimanche ☕", tag: "🌿 calme" },
+];
+
 export const Route = createFileRoute("/nous")({
   head: () => ({
     meta: [
@@ -30,6 +66,13 @@ function Nous() {
   const [fridayAnswersCount, setFridayAnswersCount] = useState(0);
   const [fridayWeekKeys, setFridayWeekKeys] = useState<string[]>([]);
   const [draft, setDraft] = useState("");
+  const [challengeOffset, setChallengeOffset] = useState(0);
+  const [challengeBusy, setChallengeBusy] = useState(false);
+  const [challengeError, setChallengeError] = useState<string | null>(null);
+  const [feelGoodItems, setFeelGoodItems] = useState<FeelGoodItem[]>([]);
+  const [feelGoodTag, setFeelGoodTag] = useState<FeelGoodTag>("🌿 calme");
+  const [feelGoodDraft, setFeelGoodDraft] = useState("");
+  const [feelGoodMode, setFeelGoodMode] = useState<"db" | "local">("db");
 
   useEffect(() => {
     if (loading) return;
@@ -80,6 +123,32 @@ function Nous() {
       setFridayWeekKeys(
         ((fridayRituals as { week_key: string }[] | null) ?? []).map((r) => r.week_key),
       );
+
+      const seeded = DEFAULT_FEEL_GOOD_ITEMS.map((item, idx) => ({
+        id: `seed-${idx}`,
+        text: item.text,
+        tag: item.tag,
+        pinned: false,
+      }));
+      const { data: fgRows, error: fgError } = await supabase
+        .from("feel_good_items")
+        .select("id, text, tag, pinned")
+        .eq("couple_id", couple.id)
+        .order("created_at");
+      if (fgError) {
+        const stored = readFeelGoodFromStorage(couple.id);
+        setFeelGoodMode("local");
+        setFeelGoodItems(stored.length ? stored : seeded);
+      } else {
+        setFeelGoodMode("db");
+        const dbItems = ((fgRows as FeelGoodItem[] | null) ?? []).map((row) => ({
+          id: row.id,
+          text: row.text,
+          tag: normalizeTag(row.tag),
+          pinned: !!row.pinned,
+        }));
+        setFeelGoodItems(dbItems.length ? mergeSeededWithExisting(dbItems, seeded) : seeded);
+      }
     })();
   }, [couple]);
 
@@ -108,6 +177,10 @@ function Nous() {
     { emoji: "🎪", label: "Premier défi", unlocked: defiCount >= 1 },
     { emoji: "🔥", label: "3 vendredis de suite", unlocked: fridayStreak >= 3 },
   ];
+  const mondayChallengeIndex =
+    (getIsoWeekNumber(new Date()) - 1 + challengeOffset) % WEEKLY_CHALLENGES.length;
+  const currentChallenge =
+    WEEKLY_CHALLENGES[(mondayChallengeIndex + WEEKLY_CHALLENGES.length) % WEEKLY_CHALLENGES.length];
 
   const addRule = async () => {
     if (!draft.trim()) return;
@@ -127,6 +200,141 @@ function Nous() {
   const removeRule = async (id: string) => {
     await supabase.from("pact_rules").delete().eq("id", id);
     setPact(pact.filter((p) => p.id !== id));
+  };
+
+  const completeChallenge = async () => {
+    setChallengeBusy(true);
+    setChallengeError(null);
+    try {
+      await supabase.from("memory_moments").insert({
+        couple_id: couple.id,
+        kind: "defi",
+        title: currentChallenge,
+        body: null,
+      });
+      await supabase.from("tree_events").insert({ couple_id: couple.id, kind: "flower" });
+      setDefiCount((n) => n + 1);
+      setMoments((prev) => [
+        {
+          id: `local-defi-${Date.now()}`,
+          couple_id: couple.id,
+          kind: "milestone",
+          title: `🎯 ${currentChallenge}`,
+          body: null,
+          created_at: new Date().toISOString(),
+        },
+        ...prev,
+      ]);
+      setChallengeOffset((n) => n + 1);
+    } catch (e) {
+      setChallengeError(e instanceof Error ? e.message : "Impossible d'enregistrer ce défi.");
+    } finally {
+      setChallengeBusy(false);
+    }
+  };
+
+  const saveFeelGoodLocal = (items: FeelGoodItem[]) => {
+    if (!couple || typeof window === "undefined") return;
+    const payload = { ...readAllFeelGoodStorage(), [couple.id]: items };
+    window.localStorage.setItem(FEEL_GOOD_STORAGE_KEY, JSON.stringify(payload));
+  };
+
+  const pinFeelGood = async (item: FeelGoodItem) => {
+    const nextPinned = !item.pinned;
+    if (feelGoodMode === "local") {
+      const next = feelGoodItems.map((fg) =>
+        fg.id === item.id ? { ...fg, pinned: nextPinned } : fg,
+      );
+      setFeelGoodItems(next);
+      saveFeelGoodLocal(next);
+      return;
+    }
+
+    if (item.id.startsWith("seed-")) {
+      const { data, error } = await supabase
+        .from("feel_good_items")
+        .insert({
+          couple_id: couple.id,
+          text: item.text,
+          tag: item.tag,
+          pinned: nextPinned,
+        })
+        .select("id, text, tag, pinned")
+        .single();
+      if (error) {
+        setFeelGoodMode("local");
+        const next = feelGoodItems.map((fg) =>
+          fg.id === item.id ? { ...fg, pinned: nextPinned } : fg,
+        );
+        setFeelGoodItems(next);
+        saveFeelGoodLocal(next);
+        return;
+      }
+      setFeelGoodItems((prev) =>
+        prev.map((fg) =>
+          fg.id === item.id
+            ? {
+                id: (data as { id: string }).id,
+                text: item.text,
+                tag: item.tag,
+                pinned: nextPinned,
+              }
+            : fg,
+        ),
+      );
+      return;
+    }
+
+    const { error } = await supabase
+      .from("feel_good_items")
+      .update({ pinned: nextPinned })
+      .eq("id", item.id);
+    if (!error) {
+      setFeelGoodItems((prev) =>
+        prev.map((fg) => (fg.id === item.id ? { ...fg, pinned: nextPinned } : fg)),
+      );
+    }
+  };
+
+  const addFeelGood = async () => {
+    const text = feelGoodDraft.trim();
+    if (!text) return;
+    if (feelGoodMode === "local") {
+      const next = [
+        ...feelGoodItems,
+        { id: `local-${Date.now()}`, text, tag: feelGoodTag, pinned: false },
+      ];
+      setFeelGoodItems(next);
+      setFeelGoodDraft("");
+      saveFeelGoodLocal(next);
+      return;
+    }
+    const { data, error } = await supabase
+      .from("feel_good_items")
+      .insert({ couple_id: couple.id, text, tag: feelGoodTag, pinned: false })
+      .select("id, text, tag, pinned")
+      .single();
+    if (error) {
+      const next = [
+        ...feelGoodItems,
+        { id: `local-${Date.now()}`, text, tag: feelGoodTag, pinned: false },
+      ];
+      setFeelGoodMode("local");
+      setFeelGoodItems(next);
+      setFeelGoodDraft("");
+      saveFeelGoodLocal(next);
+      return;
+    }
+    setFeelGoodItems((prev) => [
+      ...prev,
+      {
+        id: (data as { id: string }).id,
+        text,
+        tag: feelGoodTag,
+        pinned: false,
+      },
+    ]);
+    setFeelGoodDraft("");
   };
 
   return (
@@ -193,6 +401,88 @@ function Nous() {
               </div>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section className="mt-8 rounded-3xl border-2 border-ink bg-card p-6 shadow-flat">
+        <h2 className="serif text-2xl text-ink">Défis du couple 🎯</h2>
+        <p className="text-sm text-muted-foreground mt-2">
+          Juste une proposition fun de la semaine, jamais une obligation.
+        </p>
+        <div className="mt-4 rounded-2xl border-2 border-ink bg-paper p-4">
+          <div className="text-sm text-muted-foreground">Défi de cette semaine</div>
+          <div className="text-ink mt-1 font-medium">{currentChallenge}</div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              onClick={completeChallenge}
+              disabled={challengeBusy}
+              className="btn-flat rounded-full bg-emerald px-4 py-2 text-sm text-accent-foreground disabled:opacity-40"
+            >
+              {challengeBusy ? "Enregistrement…" : "✅ On l'a fait !"}
+            </button>
+            <button
+              onClick={() => setChallengeOffset((n) => n + 1)}
+              className="rounded-full border-2 border-ink bg-card px-4 py-2 text-sm text-ink"
+            >
+              Passer ce défi →
+            </button>
+          </div>
+          {challengeError && <p className="mt-3 text-sm text-destructive">{challengeError}</p>}
+        </div>
+      </section>
+
+      <section className="mt-8 rounded-3xl border-2 border-ink bg-card p-6 shadow-flat">
+        <h2 className="serif text-2xl text-ink">Ce qui nous ressource 🌿</h2>
+        <p className="text-sm text-muted-foreground mt-2">
+          Une liste douce d&apos;idées qui vous font du bien, à piocher quand vous voulez.
+        </p>
+        {feelGoodMode === "local" && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Mode local activé (fallback), la table Supabase n&apos;est pas disponible.
+          </p>
+        )}
+        <div className="mt-4 space-y-2">
+          {feelGoodItems.map((item) => (
+            <div key={item.id} className="rounded-2xl border-2 border-ink bg-paper p-3">
+              <div className="flex items-start gap-2">
+                <div className="flex-1">
+                  <div className="text-ink text-sm">{item.text}</div>
+                  <div className="text-xs text-muted-foreground mt-1">{item.tag}</div>
+                </div>
+                <button
+                  onClick={() => pinFeelGood(item)}
+                  className={`rounded-full px-3 py-1 text-xs border-2 ${item.pinned ? "border-emerald bg-emerald/10 text-emerald" : "border-ink text-ink"}`}
+                >
+                  {item.pinned ? "📌 Prévu" : "📌 Ce week-end !"}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <input
+            value={feelGoodDraft}
+            onChange={(e) => setFeelGoodDraft(e.target.value)}
+            placeholder="Ajouter une activité qui vous ressource..."
+            className="flex-1 min-w-56 rounded-xl border-2 border-ink bg-paper p-3 text-sm text-ink outline-none"
+          />
+          <select
+            value={feelGoodTag}
+            onChange={(e) => setFeelGoodTag(e.target.value as FeelGoodTag)}
+            className="rounded-xl border-2 border-ink bg-paper p-3 text-sm text-ink"
+          >
+            <option value="🌿 calme">🌿 calme</option>
+            <option value="⚡ aventure">⚡ aventure</option>
+            <option value="🔥 complicité">🔥 complicité</option>
+            <option value="💆 douceur">💆 douceur</option>
+          </select>
+          <button
+            onClick={addFeelGood}
+            disabled={!feelGoodDraft.trim()}
+            className="btn-flat rounded-xl bg-emerald px-4 text-accent-foreground disabled:opacity-40"
+          >
+            Ajouter
+          </button>
         </div>
       </section>
 
@@ -309,4 +599,39 @@ function longestConsecutiveWeekStreak(weekKeys: string[]): number {
     best = Math.max(best, streak);
   }
   return best;
+}
+
+function getIsoWeekNumber(date: Date): number {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+}
+
+function normalizeTag(tag: string): FeelGoodTag {
+  const allowed: FeelGoodTag[] = ["🌿 calme", "⚡ aventure", "🔥 complicité", "💆 douceur"];
+  return allowed.includes(tag as FeelGoodTag) ? (tag as FeelGoodTag) : "🌿 calme";
+}
+
+function readAllFeelGoodStorage(): Record<string, FeelGoodItem[]> {
+  if (typeof window === "undefined") return {};
+  const raw = window.localStorage.getItem(FEEL_GOOD_STORAGE_KEY);
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw) as Record<string, FeelGoodItem[]>;
+  } catch {
+    return {};
+  }
+}
+
+function readFeelGoodFromStorage(coupleId: string): FeelGoodItem[] {
+  const all = readAllFeelGoodStorage();
+  return all[coupleId] ?? [];
+}
+
+function mergeSeededWithExisting(existing: FeelGoodItem[], seeded: FeelGoodItem[]): FeelGoodItem[] {
+  const lowerExisting = new Set(existing.map((i) => i.text.toLowerCase()));
+  const missingSeeded = seeded.filter((s) => !lowerExisting.has(s.text.toLowerCase()));
+  return [...existing, ...missingSeeded];
 }
