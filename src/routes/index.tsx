@@ -8,7 +8,8 @@ export const Route = createFileRoute("/")({
       { title: "Nous — le jeu dont votre couple a besoin" },
       {
         name: "description",
-        content: "Parce que lire dans les pensées, c'est épuisant. Chacun joue sa partie. Vendredi, vous comparez les scores.",
+        content:
+          "Parce que lire dans les pensées, c'est épuisant. Chacun joue sa partie. Vendredi, vous comparez les scores.",
       },
     ],
   }),
@@ -31,17 +32,18 @@ function Home() {
       </div>
 
       <h1 className="serif text-5xl text-ink leading-[0.95]">
-        Ton couple mérite mieux
-        <span className="italic text-emerald"> qu'un silence awkward.</span>
+        Ce que vous ne vous dites pas encore…
+        <span className="italic text-emerald"> vous allez le dire.</span>
       </h1>
       <p className="mt-6 text-ink/70 text-[16px] leading-relaxed">
-        Chaque jour tu déposes ce qui s'est passé. Vendredi soir, vous ouvrez tout en même temps. Spoiler : ça surprend toujours.
+        Chacun dépose sa semaine en privé. Vendredi soir, vous ouvrez tout en même temps. Spoiler :
+        ça surprend toujours.
       </p>
 
       <div className="mt-10 space-y-3">
-        <Pill emoji="💚" label="+1" sub="un moment qui fait du bien" />
-        <Pill emoji="💡" label="Idées" sub="proposer une nouvelle règle ensemble" />
-        <Pill emoji="🌊" label="Émotion" sub="dit en CNV, pas en reproche" />
+        <Pill emoji="💚" label="+1" sub="un truc bien qui mérite pas de rester dans ta tête" />
+        <Pill emoji="💡" label="Idées" sub="une règle de vie pour votre couple (oui oui)" />
+        <Pill emoji="🌊" label="Émotion" sub="ce que t'as ressenti mais pas dit (encore)" />
       </div>
 
       <div className="mt-12 grid gap-3">
@@ -60,7 +62,7 @@ function Home() {
       </div>
 
       <p className="mt-10 text-center text-xs text-muted-foreground italic">
-        « L'amour c'est bien. L'amour qui se comprend, c'est mieux. »
+        « Parce que 'ça va' c'est pas une réponse. »
       </p>
     </main>
   );

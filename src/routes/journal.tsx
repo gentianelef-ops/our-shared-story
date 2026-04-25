@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCoupleSession } from "@/lib/use-couple-session";
+import { useStorm } from "@/lib/use-storm";
 import { isUnlocked, lock } from "@/lib/local-lock";
 import { BottomNav } from "@/components/bottom-nav";
 import { StormButton } from "@/components/storm-button";
@@ -21,12 +22,18 @@ export const Route = createFileRoute("/journal")({
 
 const TAGS: { id: Tag; emoji: string; label: string; sub: string }[] = [
   { id: "positif", emoji: "💚", label: "+1", sub: "Un moment qui fait du bien" },
-  { id: "pacte", emoji: "💡", label: "Idée pacte", sub: "Propose une nouvelle règle pour vendredi" },
+  {
+    id: "pacte",
+    emoji: "💡",
+    label: "Idée pacte",
+    sub: "Propose une nouvelle règle pour vendredi",
+  },
   { id: "emotion", emoji: "🌊", label: "Émotion", sub: "À traduire en CNV" },
 ];
 
 function Journal() {
   const { loading, member, couple } = useCoupleSession();
+  const { storm } = useStorm(couple?.id);
   const navigate = useNavigate();
   const [unlocked, setUnlocked] = useState(false);
   const [entries, setEntries] = useState<Entry[]>([]);
@@ -34,8 +41,14 @@ function Journal() {
 
   useEffect(() => {
     if (loading) return;
-    if (!member) { navigate({ to: "/" }); return; }
-    if (!isUnlocked(member.id)) { navigate({ to: "/login" }); return; }
+    if (!member) {
+      navigate({ to: "/" });
+      return;
+    }
+    if (!isUnlocked(member.id)) {
+      navigate({ to: "/login" });
+      return;
+    }
     setUnlocked(true);
   }, [loading, member, navigate]);
 
@@ -67,7 +80,11 @@ function Journal() {
   };
 
   if (loading || !unlocked || !member || !couple) {
-    return <main className="min-h-screen grid place-items-center"><div className="text-muted-foreground">…</div></main>;
+    return (
+      <main className="min-h-screen grid place-items-center">
+        <div className="text-muted-foreground">…</div>
+      </main>
+    );
   }
 
   const counts = {
@@ -87,7 +104,10 @@ function Journal() {
           <StormButton coupleId={couple.id} />
           <NotificationBell userId={member.user_id} coupleId={couple.id} />
           <button
-            onClick={() => { lock(); navigate({ to: "/login" }); }}
+            onClick={() => {
+              lock();
+              navigate({ to: "/login" });
+            }}
             className="rounded-full border-2 border-ink p-2 text-ink"
             aria-label="Verrouiller"
           >
@@ -95,6 +115,14 @@ function Journal() {
           </button>
         </div>
       </header>
+
+      {storm && (
+        <div className="rounded-2xl bg-amber-50 border-2 border-amber-200 p-4 mb-4 text-sm text-ink">
+          💙 <strong>{storm.started_by === member.user_id ? "Toi" : "Ton/ta partenaire"}</strong> ne
+          se sent pas bien en ce moment — mais ce n&apos;est pas de ta faute. Donne-lui un peu
+          d&apos;espace. 🌿
+        </div>
+      )}
 
       <div className="rounded-3xl border-2 border-ink bg-card p-5 shadow-flat">
         <div className="tracking-ritual text-muted-foreground mb-3">Mon espace cette semaine</div>
@@ -108,13 +136,21 @@ function Journal() {
       <h2 className="serif text-2xl text-ink mt-10 mb-4">Déposer</h2>
       <div className="space-y-3">
         {TAGS.map((t) => (
-          <Composer key={t.id} tag={t} member={member} pactRules={pact.map((p) => p.text)} onSaved={refreshEntries} />
+          <Composer
+            key={t.id}
+            tag={t}
+            member={member}
+            pactRules={pact.map((p) => p.text)}
+            onSaved={refreshEntries}
+          />
         ))}
       </div>
 
       <h2 className="serif text-2xl text-ink mt-10 mb-4">Tes dépôts</h2>
       {entries.length === 0 ? (
-        <p className="text-sm text-muted-foreground italic">Rien encore. La page est blanche, tant mieux.</p>
+        <p className="text-sm text-muted-foreground italic">
+          Rien encore. La page est blanche, tant mieux.
+        </p>
       ) : (
         <ul className="space-y-3">
           {entries.map((e) => (
@@ -124,7 +160,10 @@ function Journal() {
       )}
 
       <button
-        onClick={() => { lock(); navigate({ to: "/" }); }}
+        onClick={() => {
+          lock();
+          navigate({ to: "/" });
+        }}
         className="block w-full text-center mt-8 text-xs tracking-ritual text-muted-foreground"
       >
         Accueil
@@ -164,7 +203,13 @@ function Composer({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const reset = () => { setText(""); setTranslated(null); setShare(true); setErr(null); setOpen(false); };
+  const reset = () => {
+    setText("");
+    setTranslated(null);
+    setShare(true);
+    setErr(null);
+    setOpen(false);
+  };
 
   const translate = async () => {
     if (!text.trim()) return;
@@ -236,13 +281,18 @@ function Composer({
       <div className="flex items-center gap-3 mb-3">
         <div className="text-2xl">{tag.emoji}</div>
         <div className="font-semibold text-ink flex-1">{tag.label}</div>
-        <button onClick={reset} className="text-muted-foreground text-xl leading-none">×</button>
+        <button onClick={reset} className="text-muted-foreground text-xl leading-none">
+          ×
+        </button>
       </div>
 
       <textarea
         autoFocus
         value={text}
-        onChange={(e) => { setText(e.target.value); setTranslated(null); }}
+        onChange={(e) => {
+          setText(e.target.value);
+          setTranslated(null);
+        }}
         placeholder={
           tag.id === "emotion"
             ? "Dis-le brut. On le reformulera ensemble."
@@ -313,11 +363,23 @@ function EntryCard({ entry, onChange }: { entry: Entry; onChange: () => void }) 
             </div>
           )}
           <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
-            <span>{new Date(entry.created_at).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" })}</span>
+            <span>
+              {new Date(entry.created_at).toLocaleDateString("fr-FR", {
+                weekday: "short",
+                day: "numeric",
+                month: "short",
+              })}
+            </span>
             {entry.will_share && <span className="tracking-ritual text-emerald">• vendredi</span>}
           </div>
         </div>
-        <button onClick={remove} className="text-muted-foreground text-lg leading-none" aria-label="Supprimer">×</button>
+        <button
+          onClick={remove}
+          className="text-muted-foreground text-lg leading-none"
+          aria-label="Supprimer"
+        >
+          ×
+        </button>
       </div>
     </li>
   );
